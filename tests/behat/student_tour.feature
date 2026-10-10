@@ -1,4 +1,4 @@
-@mod @mod_assign @assignsubmission_vrtour
+@mod @mod_assign @assignsubmission @assignsubmission_vrtour
 Feature: Students make a virtual tour as an assignment submission
   In order to have students build virtual tours of 360° photos
   As a teacher
