@@ -177,7 +177,7 @@ final class editor_services_test extends \advanced_testcase {
         $submission = $this->assign->get_user_submission($this->student->id, false);
         $this->add_upload($this->assign, $submission, 1, 'room.jpg', $this->jpeg());
         $this->add_upload($this->assign, $submission, 2, 'clip.mp4', 'not really a video');
-        $this->add_upload($this->assign, $submission, 3, 'flat.jpg', $this->jpeg(1200, 900));
+        $this->add_upload($this->assign, $submission, 3, 'small.jpg', $this->jpeg(800, 400));
         $good = $this->photo_scene('a1', $this->ref(1, 'room.jpg'), [$this->hotspot('h1')]);
 
         switch ($case) {
@@ -209,8 +209,8 @@ final class editor_services_test extends \advanced_testcase {
                 $point = $this->hotspot('h1', [$this->ref(2, 'clip.mp4')]);
                 $scenes = [$this->photo_scene('a1', $this->ref(1, 'room.jpg'), [$point])];
                 break;
-            case 'notpanorama':
-                $scenes = [$this->photo_scene('a1', $this->ref(3, 'flat.jpg'))];
+            case 'toosmall':
+                $scenes = [$this->photo_scene('a1', $this->ref(3, 'small.jpg'))];
                 break;
             case 'toomany':
                 $scenes = [];
@@ -242,7 +242,7 @@ final class editor_services_test extends \advanced_testcase {
             'a file of another submission' => ['foreignref'],
             'a video object when video is not allowed' => ['videonotallowed'],
             'a video in a panel when video is not allowed' => ['videoinpanel'],
-            'a photo that is not 2:1' => ['notpanorama'],
+            'a photo narrower than the site allows' => ['toosmall'],
             'more photos than allowed' => ['toomany'],
         ];
     }

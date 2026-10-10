@@ -717,7 +717,8 @@ final class tour_manager {
     }
 
     /**
-     * Whether an image is a 360° photo: it has variants, or it is twice as wide as it is high.
+     * Whether an image is offered as a 360° photo: it has variants, or it is at least 1.5 times as wide
+     * as it is high (any shape can be used as one).
      *
      * @param \stored_file $file The file.
      * @return bool

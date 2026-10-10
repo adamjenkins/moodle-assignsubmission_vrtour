@@ -82,4 +82,4 @@ $string['privacy:metadata:tablepurpose'] = 'The virtual tour of each submission.
 $string['privacy:metadata:timemodified'] = 'When the tour was last saved.';
 $string['summary'] = 'Photos: {$a->photos}. Points of interest: {$a->points}.';
 $string['uploadfile'] = 'File';
-$string['uploadpanoramahelp'] = 'Choose a 360° photo: a JPEG, PNG or WebP photo twice as wide as it is high (an equirectangular panorama), up to {$a->maxwidth} pixels wide and {$a->maxsize}.';
+$string['uploadpanoramahelp'] = 'Choose a 360° photo: a JPEG, PNG or WebP photo up to {$a->maxwidth} pixels wide and {$a->maxsize}. For best results, use an equirectangular photo twice as wide as it is high, such as a phone camera\'s photo sphere; a wider photo is shown as a band around the horizon.';

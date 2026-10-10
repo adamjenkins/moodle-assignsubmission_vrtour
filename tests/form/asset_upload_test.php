@@ -115,9 +115,9 @@ final class asset_upload_test extends \advanced_testcase {
     }
 
     /**
-     * A photo that is not 2:1 is a form error and nothing is stored.
+     * A photo that is not 2:1 is accepted; one too small is a form error and nothing more is stored.
      */
-    public function test_photo_wrong_ratio(): void {
+    public function test_photo_shape_and_size(): void {
         $this->resetAfterTest();
         $course = $this->getDataGenerator()->create_course();
         $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
@@ -126,9 +126,15 @@ final class asset_upload_test extends \advanced_testcase {
 
         $draftid = self::draft_with('flat.jpg', $this->jpeg(1600, 1200));
         $result = self::submit((int)$assign->get_course_module()->id, 'panorama', $draftid);
+        $this->assertTrue($result['submitted']);
+        $this->assertTrue(json_decode($result['data'], true)['panorama']);
+
+        $draftid = self::draft_with('small.jpg', $this->jpeg(800, 400));
+        $result = self::submit((int)$assign->get_course_module()->id, 'panorama', $draftid);
         $this->assertFalse($result['submitted']);
         $submission = $assign->get_user_submission($student->id, false);
-        $this->assertSame([], tour_manager::list_assets($assign->get_context(), (int)$submission->id));
+        $listed = array_column(tour_manager::list_assets($assign->get_context(), (int)$submission->id), 'filename');
+        $this->assertSame(['flat.jpg'], $listed);
     }
 
     /**
