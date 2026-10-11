@@ -1,0 +1,27 @@
+# camp listing manifest: descriptive content for the plugin's page.
+# camp ingests this file at each tagged release.
+# Schema: https://camp-registry.org/schema/listing.schema.json
+name: Virtual tour submission
+summary: "An assignment submission type for 360° photo tours: students upload panoramas, link them and add points of interest."
+description: |
+  Virtual tour is a submission plugin for the Assignment activity. Students
+  hand in a virtual tour: they upload 360° photos, link the photos together,
+  and place points of interest on them with text, images, audio or video.
+  Teachers grade the tour with everything the Assignment already offers:
+  due dates, extensions, drafts, group submissions, rubrics and marking
+  guides, feedback and notifications.
+
+  Students build the tour in VR room's room editor, and the tour is shown in
+  VR room's built-in viewer (computer, phone or VR headset, with a list view
+  when a browser cannot show 3D). Teachers choose the most photos, the fewest
+  points of interest and which media are allowed for each assignment.
+
+  Requires VR room (mod_vrroom). Moodle 5.2 and 5.3. ALPHA.
+labels:
+  # Disclosure labels (RFC §4.7):
+  #   fully-free | freemium | paid-service | external-account
+  #   donation-supported | commercial-support-available
+  #   requires-core-patch (needs modifications to Moodle core to work)
+  - fully-free
+links:
+  issues: https://github.com/adamjenkins/moodle-assignsubmission_vrtour/issues

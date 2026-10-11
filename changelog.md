@@ -3,12 +3,14 @@
 All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-10-11
 
-ALPHA. First release, Moodle 5.2 and 5.3. Not yet tagged.
+ALPHA. First release, Moodle 5.2 and 5.3.
 
 ### Added
 
+- camp registry listing (`.camp/listing.yml`) and release workflow
+  (`.github/workflows/camp-release.yml`).
 - Submission plugin `assignsubmission_vrtour` (`$plugin->version` 2026101100): table
   `assignsubmission_vrtour` (rooms as JSON, revision, photo and point counts) and file area `tour`
   (item id = submission id, folder `/N/` per upload, `/N/variants/` for the smaller copies).
