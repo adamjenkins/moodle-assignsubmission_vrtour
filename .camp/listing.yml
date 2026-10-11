@@ -23,5 +23,16 @@ labels:
   #   donation-supported | commercial-support-available
   #   requires-core-patch (needs modifications to Moodle core to work)
   - fully-free
+screenshots:
+  - path: .camp/screenshots/01-tour-editor.jpg
+    caption: 'A student builds a tour: photos, points of interest and portals between photos (photo: Poly Haven, CC0).'
+  - path: .camp/screenshots/02-tour-viewer.jpg
+    caption: 'The finished tour in the viewer, with a point of interest open (photo: Poly Haven, CC0).'
+  - path: .camp/screenshots/03-submission.jpg
+    caption: 'The submission page sums up the tour (photos, points of interest) with a link to open it.'
+  - path: .camp/screenshots/04-grading.jpg
+    caption: 'Teachers see each tour in the submissions table and grade it like any assignment.'
+  - path: .camp/screenshots/05-settings.jpg
+    caption: 'Assignment settings: most photos, fewest points of interest and which media are allowed.'
 links:
   issues: https://github.com/adamjenkins/moodle-assignsubmission_vrtour/issues
