@@ -424,6 +424,8 @@ final class tour_manager {
      *
      * Any failure throws and nothing is written. The revision check and the write run under a
      * per-submission lock, so of two saves from the same revision only the first is stored.
+     * In an assignment without drafts, a submitted tour must still pass the plugin's submit rules,
+     * and the save moves the submission's time and is logged, as the submission form's save is.
      *
      * @param \assign $assign The assignment.
      * @param \stdClass $submission The assign_submission row (the caller checked it may be edited).
@@ -471,9 +473,23 @@ final class tour_manager {
             }
             self::validate($assign, (int)$submission->id, $scenes);
 
-            // 4. Store, then delete the uploads no room uses.
+            // 4. Without drafts a submitted tour stays submitted, so it must still be one that could be
+            // submitted (the check of the submission form's save).
+            $submitted = !$assign->get_instance()->submissiondrafts
+                && $submission->status === ASSIGN_SUBMISSION_STATUS_SUBMITTED;
+            if ($submitted) {
+                $problem = self::get_plugin($assign)->problem($scenes);
+                if ($problem !== null) {
+                    self::fail($problem);
+                }
+            }
+
+            // 5. Store, then delete the uploads no room uses.
             $row = self::store($assign, $submission, $scenes);
             self::prune($assign->get_context(), (int)$submission->id, $scenes);
+            if ($submitted) {
+                self::record_submitted_change($assign, $submission, $row, $before === null);
+            }
         } finally {
             $lock->release();
         }
@@ -485,6 +501,38 @@ final class tour_manager {
             'graphupdated' => false,
             'customised' => (int)$row->timemodified,
         ];
+    }
+
+    /**
+     * Record on the submission a change the editor made to a submitted tour (an assignment without drafts).
+     *
+     * The submission form's save does this through core, but the student need not go back to it. Without
+     * this the submission would keep its first time: not flagged late, and no "modified after grading" cue.
+     * As core's update_team_submission() does, a group submission moves with the member's own row.
+     *
+     * @param \assign $assign The assignment.
+     * @param \stdClass $submission The assign_submission row (status submitted).
+     * @param \stdClass $row The tour row as stored.
+     * @param bool $isnew Whether the tour row was created by this save.
+     */
+    private static function record_submitted_change(\assign $assign, \stdClass $submission, \stdClass $row, bool $isnew): void {
+        global $DB, $USER;
+
+        $now = (int)$row->timemodified;
+        $ids = [(int)$submission->id];
+        if ($assign->get_instance()->teamsubmission) {
+            $own = $assign->get_user_submission((int)$USER->id, false, (int)$submission->attemptnumber);
+            if ($own) {
+                $ids[] = (int)$own->id;
+            }
+        }
+        foreach ($ids as $id) {
+            $DB->set_field('assign_submission', 'timemodified', $now, ['id' => $id]);
+        }
+        $submission->timemodified = $now;
+
+        self::get_plugin($assign)->log_change($submission, $row, $isnew);
+        \mod_assign\event\assessable_submitted::create_from_submission($assign, $submission, true)->trigger();
     }
 
     /**

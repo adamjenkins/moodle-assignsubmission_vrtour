@@ -198,8 +198,6 @@ class assign_submission_vrtour extends assign_submission_plugin {
      * @return bool
      */
     public function save(stdClass $submission, stdClass $data) {
-        global $DB;
-
         $row = tour_manager::get_row((int)$submission->id);
         $scenes = tour_manager::scenes($row);
         if (!$this->assignment->get_instance()->submissiondrafts) {
@@ -211,6 +209,19 @@ class assign_submission_vrtour extends assign_submission_plugin {
         }
         $isnew = $row === null;
         $row = tour_manager::store($this->assignment, $submission, $scenes);
+        $this->log_change($submission, $row, $isnew);
+        return true;
+    }
+
+    /**
+     * Log a change of a submission's tour (submission_created for its first row, else submission_updated).
+     *
+     * @param stdClass $submission The assign_submission row.
+     * @param stdClass $row The tour row as stored.
+     * @param bool $isnew Whether the row was created by this change.
+     */
+    public function log_change(stdClass $submission, stdClass $row, bool $isnew): void {
+        global $DB;
 
         $params = [
             'context' => context_module::instance($this->assignment->get_course_module()->id),
@@ -244,7 +255,6 @@ class assign_submission_vrtour extends assign_submission_plugin {
             : \assignsubmission_vrtour\event\submission_updated::create($params);
         $event->set_assign($this->assignment);
         $event->trigger();
-        return true;
     }
 
     /**
@@ -264,10 +274,12 @@ class assign_submission_vrtour extends assign_submission_plugin {
     /**
      * Why a tour cannot be submitted.
      *
+     * Also checked by the tour editor's save of a submitted tour when the assignment does not use drafts.
+     *
      * @param array $scenes The tour's rooms.
      * @return string|null
      */
-    private function problem(array $scenes): ?string {
+    public function problem(array $scenes): ?string {
         [$photos, $points] = tour_manager::counts($scenes);
         if ($photos < 1) {
             return get_string('errornophoto', 'assignsubmission_vrtour');

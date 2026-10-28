@@ -262,4 +262,81 @@ final class editor_services_test extends \advanced_testcase {
         $this->expectExceptionMessage(get_string('errorconflict', 'assignsubmission_vrtour'));
         $this->save([$scene], $loaded['document']['revision']);
     }
+
+    /**
+     * Without drafts, an editor save of a submitted tour keeps to the submit rules, moves the
+     * submission's time (so a change after the due date shows as late) and is logged.
+     */
+    public function test_save_of_submitted_tour_without_drafts(): void {
+        global $DB;
+
+        $assign = $this->create_tour_assign($this->course, [
+            'submissiondrafts' => 0,
+            'assignsubmission_vrtour_minpoints' => 2,
+            'duedate' => time() - DAYSECS,
+            'cutoffdate' => time() + DAYSECS,
+        ]);
+        $cmid = (int)$assign->get_course_module()->id;
+        $this->setUser($this->student);
+        $submission = $this->give_tour($assign, $this->student, 2);
+        $ontime = time() - 2 * DAYSECS;
+        $DB->update_record('assign_submission', (object)[
+            'id' => $submission->id,
+            'status' => ASSIGN_SUBMISSION_STATUS_SUBMITTED,
+            'timemodified' => $ontime,
+        ]);
+        $ref = $this->ref(1, 'room.jpg');
+        $revision = tour_manager::revision(tour_manager::get_row((int)$submission->id));
+
+        // Too few points, or no photo at all, is refused and nothing changes.
+        $refused = [
+            [[$this->photo_scene('s1', $ref, [$this->hotspot('h1')])], 'errorminpoints', (object)['min' => 2, 'count' => 1]],
+            [[], 'errornophoto', null],
+        ];
+        foreach ($refused as [$scenes, $string, $a]) {
+            try {
+                editor_save::execute($cmid, $this->document($scenes, $revision));
+                $this->fail('A submitted tour was saved below the submit rules: ' . $string);
+            } catch (\moodle_exception $e) {
+                $this->assertSame('errorinvalid', $e->errorcode);
+                $this->assertStringContainsString(get_string($string, 'assignsubmission_vrtour', $a), $e->getMessage());
+            }
+            $this->assertSame($revision, tour_manager::revision(tour_manager::get_row((int)$submission->id)));
+        }
+        $this->assertEquals($ontime, $DB->get_field('assign_submission', 'timemodified', ['id' => $submission->id]));
+
+        // A tour that keeps to the rules is saved, and the submission records the change.
+        $sink = $this->redirectEvents();
+        $before = time();
+        $scenes = [$this->photo_scene('s1', $ref, [$this->hotspot('h1'), $this->hotspot('h2'), $this->hotspot('h3')])];
+        editor_save::execute($cmid, $this->document($scenes, $revision));
+        $events = $sink->get_events();
+        $sink->close();
+
+        $record = $DB->get_record('assign_submission', ['id' => $submission->id], '*', MUST_EXIST);
+        $this->assertGreaterThanOrEqual($before, (int)$record->timemodified);
+        $this->assertGreaterThan((int)$assign->get_instance()->duedate, (int)$record->timemodified);
+        $this->assertSame(ASSIGN_SUBMISSION_STATUS_SUBMITTED, $record->status);
+        $classes = array_map(fn($event) => get_class($event), $events);
+        $this->assertContains(\assignsubmission_vrtour\event\submission_updated::class, $classes);
+        $this->assertContains(\mod_assign\event\assessable_submitted::class, $classes);
+    }
+
+    /**
+     * With drafts, an editor save of a draft leaves the submission row to the submission form, as before.
+     */
+    public function test_save_of_draft_leaves_submission(): void {
+        global $DB;
+
+        $this->setUser($this->student);
+        $submission = $this->give_tour($this->assign, $this->student, 1);
+        $DB->update_record('assign_submission', (object)[
+            'id' => $submission->id,
+            'status' => ASSIGN_SUBMISSION_STATUS_DRAFT,
+            'timemodified' => 1000,
+        ]);
+        $revision = tour_manager::revision(tour_manager::get_row((int)$submission->id));
+        $this->save([], $revision);
+        $this->assertEquals(1000, $DB->get_field('assign_submission', 'timemodified', ['id' => $submission->id]));
+    }
 }
