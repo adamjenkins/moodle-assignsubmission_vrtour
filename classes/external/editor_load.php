@@ -65,7 +65,8 @@ class editor_load extends external_api {
         $own = tour_manager::own_submission($assign, (int)$USER->id, false);
         if ($params['submissionid'] === 0 || ($own && (int)$own->id === $params['submissionid'])) {
             if ($assign->can_edit_submission($USER->id)) {
-                return tour_manager::load($assign, tour_manager::require_editable_submission($assign), false);
+                // A read: with no submission yet the tour is empty, and the first upload or save creates it.
+                return tour_manager::load($assign, tour_manager::existing_editable_submission($assign), false);
             }
             if (!$own) {
                 throw new \moodle_exception('errornoedit', 'assignsubmission_vrtour');

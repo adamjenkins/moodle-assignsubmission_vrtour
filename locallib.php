@@ -466,7 +466,8 @@ class assign_submission_vrtour extends assign_submission_plugin {
         $cm = $assign->get_course_module();
         require_login($assign->get_course(), false, $cm);
         tour_manager::get_plugin($assign);
-        $submission = tour_manager::require_editable_submission($assign);
+        // Opening the editor creates no submission: the first upload or save does.
+        $submission = tour_manager::existing_editable_submission($assign);
         $cmid = (int)$cm->id;
 
         $doneurl = new moodle_url('/mod/assign/view.php', ['id' => $cmid, 'action' => 'editsubmission']);
@@ -497,7 +498,8 @@ class assign_submission_vrtour extends assign_submission_plugin {
         $o .= $renderer->render_from_template('mod_vrroom/editor_page', [
             'rootid' => $rootid,
             'cmid' => $cmid,
-            'viewurl' => tour_manager::view_url($cmid, (int)$submission->id)->out(false),
+            // No Preview link until there is a submission to view.
+            'viewurl' => $submission ? tour_manager::view_url($cmid, (int)$submission->id)->out(false) : null,
         ]);
         $o .= html_writer::div(html_writer::link($doneurl, get_string('backtosubmission', 'assignsubmission_vrtour')), 'mt-3');
         $o .= $renderer->render_footer();

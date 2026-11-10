@@ -217,7 +217,10 @@ final class tour_manager {
     }
 
     /**
-     * The current user's submission, which they must be allowed to edit.
+     * The current user's submission, which they must be allowed to edit, created when there is none.
+     *
+     * Only the writes (the editor's save and the upload) call this: the load and the editor page use
+     * existing_editable_submission(), so that opening the editor does not create a submission.
      *
      * @param \assign $assign The assignment.
      * @return \stdClass The assign_submission row (created when there was none).
@@ -225,14 +228,56 @@ final class tour_manager {
      */
     public static function require_editable_submission(\assign $assign): \stdClass {
         global $USER;
-        if (!$assign->can_edit_submission($USER->id)) {
-            throw new \moodle_exception('errornoedit', self::COMPONENT);
-        }
+        self::require_can_edit($assign);
         $submission = self::own_submission($assign, (int)$USER->id, true);
         if (!$submission) {
             throw new \moodle_exception('errornoedit', self::COMPONENT);
         }
         return $submission;
+    }
+
+    /**
+     * The current user's submission when there is one, which they must be allowed to edit. Never creates it.
+     *
+     * @param \assign $assign The assignment.
+     * @return \stdClass|null The assign_submission row, or null when the user has none yet.
+     * @throws \moodle_exception errornoedit
+     */
+    public static function existing_editable_submission(\assign $assign): ?\stdClass {
+        global $USER;
+        self::require_can_edit($assign);
+        return self::own_submission($assign, (int)$USER->id, false);
+    }
+
+    /**
+     * The current user must be allowed to edit their submission.
+     *
+     * @param \assign $assign The assignment.
+     * @throws \moodle_exception errornoedit
+     */
+    private static function require_can_edit(\assign $assign): void {
+        global $USER;
+        if (!$assign->can_edit_submission($USER->id)) {
+            throw new \moodle_exception('errornoedit', self::COMPONENT);
+        }
+    }
+
+    /**
+     * Take the per-submission lock that the save and the upload hold while they change a tour.
+     *
+     * @param int $submissionid The submission.
+     * @return \core\lock\lock The lock; the caller releases it.
+     * @throws \moodle_exception errorconflict when another request holds it for too long
+     */
+    public static function lock(int $submissionid): \core\lock\lock {
+        $lock = \core\lock\lock_config::get_lock_factory(self::COMPONENT)->get_lock(
+            'tour_' . $submissionid,
+            self::LOCK_TIMEOUT
+        );
+        if (!$lock) {
+            throw new \moodle_exception('errorconflict', self::COMPONENT);
+        }
+        return $lock;
     }
 
     /**
@@ -323,6 +368,64 @@ final class tour_manager {
     }
 
     /**
+     * The rooms of a tour from a backup, when they keep to the rules a stored tour always keeps.
+     *
+     * A restore takes the stored JSON from the backup file, which may have been changed by hand. The
+     * checks are the editor save's that do not need the assignment's settings or the files: the size,
+     * the scene rules, every room a 360° photo without zones or props, only the kinds of object a tour
+     * can hold, and known text formats.
+     *
+     * @param string $json The scenesjson of the backup.
+     * @return array|null The rooms ([] for a tour not started), or null when the JSON breaks a rule.
+     */
+    public static function restorable_scenes(string $json): ?array {
+        if ($json === '') {
+            return [];
+        }
+        if (strlen($json) > editor_manager::MAX_DOCUMENT_BYTES) {
+            return null;
+        }
+        try {
+            $scenes = json_decode($json, true, 64, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            return null;
+        }
+        if (!is_array($scenes) || !array_is_list($scenes) || count($scenes) > self::MAX_PHOTOS) {
+            return null;
+        }
+        if (!$scenes) {
+            return [];
+        }
+        if (scene_validator::validate_set($scenes)) {
+            return null;
+        }
+        $kinds = self::allowed_kinds(['allowimage' => 1, 'allowaudio' => 1, 'allowvideo' => 1]);
+        foreach ($scenes as $scene) {
+            if (!scene_validator::is_panorama($scene['environment'] ?? null)) {
+                return null;
+            }
+            if (!empty($scene['zones']) || !empty($scene['props'])) {
+                return null;
+            }
+            foreach ($scene['interactables'] ?? [] as $item) {
+                if (!is_array($item) || !in_array((string)($item['kind'] ?? ''), $kinds, true)) {
+                    return null;
+                }
+                if ($item['kind'] === 'media' && !in_array($item['media'] ?? null, scene_validator::MEDIA_TYPES, true)) {
+                    return null;
+                }
+                if (
+                    isset($item['content']['textformat'])
+                    && !in_array($item['content']['textformat'], editor_manager::TEXT_FORMATS, true)
+                ) {
+                    return null;
+                }
+            }
+        }
+        return $scenes;
+    }
+
+    /**
      * Store a tour for a submission, creating the row when there is none.
      *
      * @param \assign $assign The assignment.
@@ -358,15 +461,17 @@ final class tour_manager {
      * Everything the room editor starts from, in mod_vrroom's editor shape.
      *
      * @param \assign $assign The assignment.
-     * @param \stdClass $submission The assign_submission row.
+     * @param \stdClass|null $submission The assign_submission row, or null for a student who has none yet
+     *     (an empty tour; the first upload or save creates the submission).
      * @param bool $readonly Whether the caller only views the tour (a grader).
      * @return array ['documentjson', 'assetsjson', 'presetsjson', 'questionsjson', 'infojson'] as JSON strings.
      */
-    public static function load(\assign $assign, \stdClass $submission, bool $readonly): array {
+    public static function load(\assign $assign, ?\stdClass $submission, bool $readonly): array {
         $plugin = self::get_plugin($assign);
         $settings = self::settings($plugin);
         $context = $assign->get_context();
-        $row = self::get_row((int)$submission->id);
+        $submissionid = $submission ? (int)$submission->id : 0;
+        $row = $submissionid ? self::get_row($submissionid) : null;
 
         // Decoded as objects, so that empty JSON objects stay objects.
         $scenes = [];
@@ -391,9 +496,9 @@ final class tour_manager {
             'cmid' => $cmid,
             'courseid' => (int)$assign->get_course()->id,
             'contextid' => (int)$context->id,
-            'submissionid' => (int)$submission->id,
+            'submissionid' => $submissionid,
             'readonly' => $readonly,
-            'viewurl' => self::view_url($cmid, (int)$submission->id)->out(false),
+            'viewurl' => $submissionid ? self::view_url($cmid, $submissionid)->out(false) : '',
             'maxdocumentbytes' => editor_manager::MAX_DOCUMENT_BYTES,
             'maxscenes' => $settings['maxphotos'],
             'maxinteractables' => scene_validator::MAX_INTERACTABLES,
@@ -412,7 +517,7 @@ final class tour_manager {
 
         return [
             'documentjson' => json_encode($document, self::JSON_FLAGS),
-            'assetsjson' => json_encode(self::list_assets($context, (int)$submission->id), self::JSON_FLAGS),
+            'assetsjson' => json_encode($submissionid ? self::list_assets($context, $submissionid) : [], self::JSON_FLAGS),
             'presetsjson' => '[]',
             'questionsjson' => '[]',
             'infojson' => json_encode($info, self::JSON_FLAGS),
@@ -447,13 +552,7 @@ final class tour_manager {
             throw new \moodle_exception('errorinvalid', self::COMPONENT, '', 'document');
         }
 
-        $lock = \core\lock\lock_config::get_lock_factory(self::COMPONENT)->get_lock(
-            'tour_' . (int)$submission->id,
-            self::LOCK_TIMEOUT
-        );
-        if (!$lock) {
-            throw new \moodle_exception('errorconflict', self::COMPONENT);
-        }
+        $lock = self::lock((int)$submission->id);
         try {
             // 2. Nobody saved since this document was loaded.
             $before = self::get_row((int)$submission->id);

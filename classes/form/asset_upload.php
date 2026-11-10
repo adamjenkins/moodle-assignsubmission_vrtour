@@ -105,7 +105,8 @@ class asset_upload extends \core_form\dynamic_form {
     protected function check_access_for_dynamic_submission(): void {
         $assign = $this->get_assign();
         tour_manager::get_plugin($assign);
-        tour_manager::require_editable_submission($assign);
+        // Fetching the form creates no submission; process_dynamic_submission() does.
+        tour_manager::existing_editable_submission($assign);
     }
 
     /**
@@ -153,19 +154,26 @@ class asset_upload extends \core_form\dynamic_form {
             throw new \moodle_exception('errorinvalid', 'assignsubmission_vrtour', '', $problem);
         }
         $submissionid = (int)$submission->id;
-        if (count(tour_manager::upload_numbers($context, $submissionid)) >= tour_manager::MAX_UPLOADS) {
-            throw new \moodle_exception('errortoomanyuploads', 'assignsubmission_vrtour');
-        }
 
-        $number = tour_manager::next_upload_number($context, $submissionid);
-        $file = get_file_storage()->create_file_from_storedfile([
-            'contextid' => $context->id,
-            'component' => tour_manager::COMPONENT,
-            'filearea' => tour_manager::FILEAREA,
-            'itemid' => $submissionid,
-            'filepath' => "/{$number}/",
-            'filename' => $source->get_filename(),
-        ], $source);
+        // The count, the folder number and the new file under the lock the save takes, so that two
+        // uploads at once neither share a folder nor pass the limit together.
+        $lock = tour_manager::lock($submissionid);
+        try {
+            if (count(tour_manager::upload_numbers($context, $submissionid)) >= tour_manager::MAX_UPLOADS) {
+                throw new \moodle_exception('errortoomanyuploads', 'assignsubmission_vrtour');
+            }
+            $number = tour_manager::next_upload_number($context, $submissionid);
+            $file = get_file_storage()->create_file_from_storedfile([
+                'contextid' => $context->id,
+                'component' => tour_manager::COMPONENT,
+                'filearea' => tour_manager::FILEAREA,
+                'itemid' => $submissionid,
+                'filepath' => "/{$number}/",
+                'filename' => $source->get_filename(),
+            ], $source);
+        } finally {
+            $lock->release();
+        }
         if ($kind === 'panorama') {
             panorama::make_variants($file);
         }

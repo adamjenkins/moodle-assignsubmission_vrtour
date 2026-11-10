@@ -65,7 +65,17 @@ class restore_assignsubmission_vrtour_subplugin extends restore_subplugin {
         if (!$data->submission) {
             return;
         }
-        $data->revision = sha1((string)($data->scenesjson ?? ''));
+        // The backup file is untrusted: a tour that breaks the editor's rules is restored empty, and the
+        // counts are taken from the rooms, never from the file.
+        $json = (string)($data->scenesjson ?? '');
+        $scenes = \assignsubmission_vrtour\local\tour_manager::restorable_scenes($json);
+        if ($scenes === null || !$scenes) {
+            $json = '';
+            $scenes = [];
+        }
+        [$data->numphotos, $data->numpoints] = \assignsubmission_vrtour\local\tour_manager::counts($scenes);
+        $data->scenesjson = $json;
+        $data->revision = sha1($json);
 
         $DB->insert_record('assignsubmission_vrtour', $data);
 

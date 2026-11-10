@@ -158,6 +158,34 @@ final class asset_upload_test extends \advanced_testcase {
     }
 
     /**
+     * At the upload limit (checked under the submission's lock) a further upload is refused and nothing is stored.
+     */
+    public function test_upload_limit(): void {
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $assign = $this->create_tour_assign($course);
+        $this->setUser($student);
+        $submission = $assign->get_user_submission($student->id, true);
+        $image = $this->jpeg(8, 8);
+        for ($i = 1; $i <= tour_manager::MAX_UPLOADS; $i++) {
+            $this->add_upload($assign, $submission, $i, 'sign.jpg', $image);
+        }
+
+        try {
+            self::submit((int)$assign->get_course_module()->id, 'image', self::draft_with('more.jpg', $this->jpeg(8, 8)));
+            $this->fail('An upload past the limit was stored.');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('errortoomanyuploads', $e->errorcode);
+        }
+        $numbers = tour_manager::upload_numbers($assign->get_context(), (int)$submission->id);
+        $this->assertCount(tour_manager::MAX_UPLOADS, $numbers);
+        // The lock was released: the next save or upload of this submission can take it at once.
+        $lock = tour_manager::lock((int)$submission->id);
+        $lock->release();
+    }
+
+    /**
      * Only a student who may edit their own submission may upload: not a teacher.
      */
     public function test_teacher_cannot_upload(): void {

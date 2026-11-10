@@ -41,19 +41,14 @@ final class backup_restore_test extends \advanced_testcase {
     use tour_test_helper;
 
     /**
-     * Back up and restore a course with user data; the tour comes back whole.
+     * Back up a course with user data and restore it as a new course.
+     *
+     * @param \stdClass $course The course.
+     * @param \cm_info|\stdClass $cm The assignment's course module.
+     * @return int The id of the restored assignment.
      */
-    public function test_backup_restore_with_users(): void {
+    private function backup_and_restore(\stdClass $course, $cm): int {
         global $DB, $USER;
-        $this->resetAfterTest();
-        $this->setAdminUser();
-        $course = $this->getDataGenerator()->create_course();
-        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
-        $assign = $this->create_tour_assign($course);
-        $submission = $this->give_tour($assign, $student, 2);
-        $cm = $assign->get_course_module();
-        $stored = tour_manager::get_row((int)$submission->id);
-
         $bc = new backup_controller(
             backup::TYPE_1COURSE,
             $course->id,
@@ -87,11 +82,31 @@ final class backup_restore_test extends \advanced_testcase {
         $rc->execute_plan();
         $rc->destroy();
 
-        $newassignid = (int)$DB->get_field('assign', 'id', ['course' => $newcourseid], MUST_EXIST);
+        return (int)$DB->get_field('assign', 'id', ['course' => $newcourseid], MUST_EXIST);
+    }
+
+    /**
+     * Back up and restore a course with user data; the tour comes back whole, with counts taken from its rooms.
+     */
+    public function test_backup_restore_with_users(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course(['summary' => '']);
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $assign = $this->create_tour_assign($course);
+        $submission = $this->give_tour($assign, $student, 2);
+        $stored = tour_manager::get_row((int)$submission->id);
+        // Counts in the backup that do not match the rooms are not trusted.
+        $DB->set_field('assignsubmission_vrtour', 'numpoints', 99, ['id' => $stored->id]);
+
+        $newassignid = $this->backup_and_restore($course, $assign->get_course_module());
+
         $row = $DB->get_record('assignsubmission_vrtour', ['assignment' => $newassignid], '*', MUST_EXIST);
         $this->assertNotEquals($submission->id, $row->submission);
         $this->assertSame($stored->scenesjson, $row->scenesjson);
         $this->assertSame(sha1($row->scenesjson), $row->revision);
+        $this->assertSame(1, (int)$row->numphotos);
         $this->assertSame(2, (int)$row->numpoints);
 
         $newcm = get_coursemodule_from_instance('assign', $newassignid);
@@ -100,5 +115,36 @@ final class backup_restore_test extends \advanced_testcase {
         $this->assertCount(1, $assets);
         $this->assertSame('room.jpg', $assets[0]['filename']);
         $this->assertSame(1, $assets[0]['itemid']);
+    }
+
+    /**
+     * A tour in the backup that breaks the editor's rules (here a room that is not a 360° photo) is restored empty.
+     */
+    public function test_restore_of_invalid_tour(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course(['summary' => '']);
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $assign = $this->create_tour_assign($course);
+        $submission = $this->give_tour($assign, $student, 1);
+        $stored = tour_manager::get_row((int)$submission->id);
+        $scene = $this->photo_scene('bad', $this->ref(1, 'room.jpg'), [$this->hotspot('h1')]);
+        $scene['environment'] = ['type' => 'preset', 'preset' => 'gallery'];
+        unset($scene['interactables'][0]['placement']);
+        $DB->update_record('assignsubmission_vrtour', (object)[
+            'id' => $stored->id,
+            'scenesjson' => json_encode([$scene]),
+            'numphotos' => 1,
+            'numpoints' => 7,
+        ]);
+
+        $newassignid = $this->backup_and_restore($course, $assign->get_course_module());
+
+        $row = $DB->get_record('assignsubmission_vrtour', ['assignment' => $newassignid], '*', MUST_EXIST);
+        $this->assertSame('', (string)$row->scenesjson);
+        $this->assertSame(sha1(''), $row->revision);
+        $this->assertSame(0, (int)$row->numphotos);
+        $this->assertSame(0, (int)$row->numpoints);
     }
 }

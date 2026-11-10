@@ -114,7 +114,8 @@ final class editor_services_test extends \advanced_testcase {
         $this->assertSame(10, $loaded['info']['maxscenes']);
         $this->assertArrayHasKey('maxwidth', $loaded['info']['panorama']);
 
-        $submission = $this->assign->get_user_submission($this->student->id, false);
+        // The load created no submission; the first upload would.
+        $submission = $this->assign->get_user_submission($this->student->id, true);
         $this->add_upload($this->assign, $submission, 1, 'room.jpg', $this->jpeg());
         $this->add_upload($this->assign, $submission, 2, 'unused.jpg', $this->jpeg());
         $scene = $this->photo_scene('a1', $this->ref(1, 'room.jpg'), [$this->hotspot('h1')]);
@@ -132,6 +133,31 @@ final class editor_services_test extends \advanced_testcase {
         $row = tour_manager::get_row((int)$submission->id);
         $this->assertSame(1, (int)$row->numphotos);
         $this->assertSame(1, (int)$row->numpoints);
+    }
+
+    /**
+     * Loading the editor (a read service) creates no submission; the first save does.
+     */
+    public function test_load_creates_no_submission(): void {
+        global $DB;
+        $this->setUser($this->student);
+        $instance = (int)$this->assign->get_instance()->id;
+        $loaded = $this->load();
+        $this->assertSame(0, $loaded['info']['submissionid']);
+        $this->assertSame('', $loaded['info']['viewurl']);
+        $this->assertSame([], $loaded['document']['scenes']);
+        $this->assertSame([], $loaded['assets']);
+        $this->assertFalse($DB->record_exists('assign_submission', ['assignment' => $instance, 'userid' => $this->student->id]));
+        $this->assertNull(tour_manager::existing_editable_submission($this->assign));
+
+        // An empty save from that load is a write: it creates the submission and the tour row.
+        $this->save([], $loaded['document']['revision']);
+        $submission = $this->assign->get_user_submission($this->student->id, false);
+        $this->assertNotEmpty($submission);
+        $this->assertNotNull(tour_manager::get_row((int)$submission->id));
+        $again = $this->load();
+        $this->assertSame((int)$submission->id, $again['info']['submissionid']);
+        $this->assertNotSame('', $again['info']['viewurl']);
     }
 
     /**
@@ -174,7 +200,8 @@ final class editor_services_test extends \advanced_testcase {
         $othersubmission = $this->give_tour($this->assign, $this->other, 1);
         $this->setUser($this->student);
         $loaded = $this->load();
-        $submission = $this->assign->get_user_submission($this->student->id, false);
+        // The load created no submission; the first upload would.
+        $submission = $this->assign->get_user_submission($this->student->id, true);
         $this->add_upload($this->assign, $submission, 1, 'room.jpg', $this->jpeg());
         $this->add_upload($this->assign, $submission, 2, 'clip.mp4', 'not really a video');
         $this->add_upload($this->assign, $submission, 3, 'small.jpg', $this->jpeg(800, 400));
@@ -253,7 +280,8 @@ final class editor_services_test extends \advanced_testcase {
     public function test_revision_conflict(): void {
         $this->setUser($this->student);
         $loaded = $this->load();
-        $submission = $this->assign->get_user_submission($this->student->id, false);
+        // The load created no submission; the first upload would.
+        $submission = $this->assign->get_user_submission($this->student->id, true);
         $this->add_upload($this->assign, $submission, 1, 'room.jpg', $this->jpeg());
         $scene = $this->photo_scene('a1', $this->ref(1, 'room.jpg'));
         $this->save([$scene], $loaded['document']['revision']);
