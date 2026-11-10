@@ -1,21 +1,17 @@
 # Changes
 
-## 0.1.1 (2026-10-11) — ALPHA
+## 0.1.2 (2026-11-10) — ALPHA
 
-The first release published to camp. The plugin code is the same as 0.1.0.
+Fixes to how tours are saved, uploaded and restored.
 
-- Screenshots and captions for the camp listing.
-- Development files (tests, CI workflows, the camp listing) are left out of the release ZIP.
-
-## 0.1.0 (2026-10-11) — ALPHA
-
-First version.
-
-- Virtual tour, a submission type for the Assignment activity: students upload 360° photos, link
-  them and place points of interest with text, images, audio or video, in VR room's room editor.
-- Teachers choose the most photos, the fewest points of interest and which media are allowed, for
-  each assignment. Photo size limits come from VR room's site settings.
-- Tours are shown in VR room's built-in viewer for students and graders.
-- Download all, privacy provider, backup and restore, new attempts based on the previous one.
-- Requires VR room (`mod_vrroom`) and its built-in viewer 2026101100 or later.
-- GitHub Actions CI on Moodle 5.3.
+- In an assignment without drafts, a student who changes a submitted tour in the tour editor now
+  updates the submission as the submission form does: the change moves the submission's time, so a
+  change after the due date shows as late and a change after grading shows as modified after
+  grading, and it is logged. The editor also refuses to save a submitted tour that no longer meets
+  the submit rules (at least one photo and the fewest points of interest).
+- Opening the tour editor no longer creates an empty submission. The first upload or save does.
+  Until then the editor's Preview link is not shown.
+- Two uploads at the same moment can no longer share a folder or together go past the upload limit.
+- Restoring a backup checks each tour against the editor's rules. A tour that breaks them is
+  restored empty, and the photo and point counts are always recalculated from the tour itself.
+- The plugin now has an icon on the Plugins overview page.
