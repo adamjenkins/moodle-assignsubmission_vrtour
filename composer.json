@@ -1,0 +1,11 @@
+{
+    "name": "adamjenkins/moodle-assignsubmission_vrtour",
+    "description": "An assignment submission type for 360° photo tours: students upload panoramas, link them and add points of interest",
+    "type": "moodle-assignsubmission",
+    "require": {
+        "moodle/moodle": ">=5.2 <5.4",
+        "moodle/composer-installer": "^1.0",
+        "adamjenkins/moodle-mod_vrroom": "^0.1"
+    },
+    "license": "GPL-3.0-or-later"
+}
