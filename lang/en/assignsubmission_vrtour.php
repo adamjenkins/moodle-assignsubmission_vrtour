@@ -83,6 +83,7 @@ $string['label_editoraddphotoscene'] = 'Add a photo';
 $string['label_editoraddportal'] = 'Link to another photo';
 $string['label_editordeletescene'] = 'Delete photo';
 $string['label_editorenvironment'] = 'This photo';
+$string['label_editorenvironmentfile'] = 'Photo file';
 $string['label_editormovescenedown'] = 'Move photo down';
 $string['label_editormovesceneup'] = 'Move photo up';
 $string['label_editornorthoffset'] = 'Which way is forward (degrees)';
