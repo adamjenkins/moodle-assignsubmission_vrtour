@@ -65,6 +65,7 @@ final class tour_manager {
     public const EDITOR_LABELS = [
         'editorscenes', 'editoraddphotoscene', 'editormovesceneup', 'editormovescenedown', 'editordeletescene',
         'editorstartscene', 'editoraddhotspot', 'editoraddportal', 'editortargetscene', 'editoruploadtitle',
+        'editorenvironment', 'editorrenamescene', 'editornorthoffset', 'editorsky',
     ];
 
     /** @var string[] The bundled practice photos (practice/<key>.jpg, thumbnails in pix/practice/). */
