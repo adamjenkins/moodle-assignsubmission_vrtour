@@ -61,6 +61,12 @@ final class tour_manager {
     /** @var int Most uploads (folders) one submission may hold; unused ones are deleted on save. */
     public const MAX_UPLOADS = 200;
 
+    /** @var string[] The VR room editor labels a tour words its own way (see editor_labels()). */
+    public const EDITOR_LABELS = [
+        'editorscenes', 'editoraddphotoscene', 'editormovesceneup', 'editormovescenedown', 'editordeletescene',
+        'editorstartscene', 'editoraddhotspot', 'editoraddportal', 'editortargetscene', 'editoruploadtitle',
+    ];
+
     /** @var string[] The bundled practice photos (practice/<key>.jpg, thumbnails in pix/practice/). */
     public const PRACTICE_PHOTOS = ['museum', 'musichall', 'ballroom'];
 
@@ -519,6 +525,7 @@ final class tour_manager {
                 'photoonly' => true,
             ],
             // Read by mod_vrroom's editor from the 2026-11-26 prototype on; older editors ignore them.
+            'labels' => self::editor_labels(),
             'emptystate' => [
                 'title' => get_string('emptystatetitle', self::COMPONENT),
                 'text' => get_string('emptystatetext', self::COMPONENT),
@@ -926,14 +933,21 @@ final class tour_manager {
      */
     public static function thumb_url(\context $context, int $submissionid, array $ref): ?string {
         $file = self::find_ref_file($context, $submissionid, $ref);
-        if (!$file) {
-            return null;
-        }
+        return $file ? self::small_copy_url($file) : null;
+    }
+
+    /**
+     * The URL of a photo's phone-sized copy when there is one, else of the photo.
+     *
+     * @param \stored_file $file The photo (directly in /N/).
+     * @return string
+     */
+    public static function small_copy_url(\stored_file $file): string {
         $copies = get_file_storage()->get_directory_files(
-            $context->id,
+            $file->get_contextid(),
             self::COMPONENT,
             self::FILEAREA,
-            $submissionid,
+            $file->get_itemid(),
             panorama::variants_path($file),
             false,
             false
@@ -1093,6 +1107,8 @@ final class tour_manager {
         ];
         if ($kind === 'panorama' || ($entry['kind'] === 'image' && self::is_panorama_file($file))) {
             $entry['panorama'] = true;
+            // The editor's photo strip shows this small copy rather than the whole photo.
+            $entry['thumburl'] = self::small_copy_url($file);
         }
         return $entry;
     }
@@ -1219,6 +1235,20 @@ final class tour_manager {
             'pluginsubtype' => 'assignsubmission',
             'pluginaction' => 'edit',
         ]);
+    }
+
+    /**
+     * The tour's own words for the VR room editor's labels (mod_vrroom reads info.labels in photo-only
+     * mode), from this plugin's lang file: label_<mod_vrroom string key>.
+     *
+     * @return array {mod_vrroom string key: text}
+     */
+    public static function editor_labels(): array {
+        $labels = [];
+        foreach (self::EDITOR_LABELS as $key) {
+            $labels[$key] = get_string('label_' . $key, self::COMPONENT);
+        }
+        return $labels;
     }
 
     /**

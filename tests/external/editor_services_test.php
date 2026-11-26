@@ -122,6 +122,9 @@ final class editor_services_test extends \advanced_testcase {
             ['kind' => 'pointsofinterest', 'label' => get_string('requirementpoints', 'assignsubmission_vrtour'), 'min' => 1],
         ], $loaded['info']['requirements']);
         $this->assertSame(tour_manager::done_url($this->cmid)->out(false), $loaded['info']['exit']['url']);
+        // The tour's own words for the editor's labels.
+        $this->assertSame(get_string('label_editorscenes', 'assignsubmission_vrtour'), $loaded['info']['labels']['editorscenes']);
+        $this->assertSame(tour_manager::EDITOR_LABELS, array_keys($loaded['info']['labels']));
 
         // The load created no submission; the first upload would.
         $submission = $this->assign->get_user_submission($this->student->id, true);
@@ -139,6 +142,7 @@ final class editor_services_test extends \advanced_testcase {
         $this->assertSame(1, $again['assets'][0]['itemid']);
         $this->assertSame('/', $again['assets'][0]['filepath']);
         $this->assertTrue($again['assets'][0]['panorama']);
+        $this->assertNotEmpty($again['assets'][0]['thumburl']);
         $row = tour_manager::get_row((int)$submission->id);
         $this->assertSame(1, (int)$row->numphotos);
         $this->assertSame(1, (int)$row->numpoints);
