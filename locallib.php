@@ -772,14 +772,17 @@ class assign_submission_vrtour extends assign_submission_plugin {
             $cmid,
             get_string('edittour', 'assignsubmission_vrtour')
         ));
-        $o .= $this->editor_guide_html();
-        // The tip's text is a lang string with a little markup, chosen and kept current by the script above.
+        // One box above the editor: the next-step tip (a lang string with a little markup, chosen and kept
+        // current by the script above), with the guide as a small toggle under it.
         $o .= html_writer::div(
-            $OUTPUT->pix_icon('i/info', '') .
-            html_writer::span(get_string('tiplabel', 'assignsubmission_vrtour'), 'visually-hidden') .
-            html_writer::span('', '', ['data-region' => 'assignsubmission_vrtour-tiptext']),
+            html_writer::div(
+                $OUTPUT->pix_icon('i/info', '') .
+                html_writer::span(get_string('tiplabel', 'assignsubmission_vrtour'), 'visually-hidden') .
+                html_writer::span('', '', ['data-region' => 'assignsubmission_vrtour-tiptext', 'aria-live' => 'polite']),
+                'assignsubmission_vrtour-tiprow'
+            ) . $this->editor_guide_html(),
             'assignsubmission_vrtour-tip alert alert-light border py-2 mb-2',
-            ['data-region' => 'assignsubmission_vrtour-tip', 'aria-live' => 'polite']
+            ['data-region' => 'assignsubmission_vrtour-tip']
         );
         $start = $OUTPUT->render_from_template('assignsubmission_vrtour/start_card', [
             'requirements' => $this->requirements_text(),
@@ -845,10 +848,10 @@ class assign_submission_vrtour extends assign_submission_plugin {
             $OUTPUT->render_from_template('assignsubmission_vrtour/nocamera', ['open' => false]);
         return html_writer::tag(
             'details',
-            html_writer::tag('summary', s(get_string('guidesummary', 'assignsubmission_vrtour')), ['class' => 'fw-bold']) .
+            html_writer::tag('summary', s(get_string('guidesummary', 'assignsubmission_vrtour')), ['class' => 'small']) .
             html_writer::div($body, 'mt-2'),
             [
-                'class' => 'assignsubmission_vrtour-guide alert alert-info py-2 mb-3',
+                'class' => 'assignsubmission_vrtour-guide mt-1',
                 'data-region' => 'assignsubmission_vrtour-guide',
             ]
         );

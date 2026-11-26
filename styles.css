@@ -78,10 +78,15 @@ body.assignsubmission-vrtour-empty .assignsubmission_vrtour-guide {
     flex-shrink: 0;
 }
 
-.assignsubmission_vrtour-tip {
+.assignsubmission_vrtour-tiprow {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+
+.assignsubmission_vrtour-guide > summary {
+    color: var(--bs-link-color);
+    margin-left: 1.75rem;
 }
 
 /* The next-step tip has nothing to say while the start card shows. */
