@@ -113,6 +113,15 @@ final class editor_services_test extends \advanced_testcase {
         $this->assertSame(['hotspot', 'portal', 'image', 'text', 'audio'], $loaded['info']['features']['kinds']);
         $this->assertSame(10, $loaded['info']['maxscenes']);
         $this->assertArrayHasKey('maxwidth', $loaded['info']['panorama']);
+        // The options mod_vrroom's editor reads for a tour: photo only, an empty-state panel, live
+        // requirements and an exit back through the plugin's done page.
+        $this->assertTrue($loaded['info']['features']['photoonly']);
+        $this->assertSame(get_string('emptystatetitle', 'assignsubmission_vrtour'), $loaded['info']['emptystate']['title']);
+        $this->assertSame([
+            ['kind' => 'scenes', 'label' => get_string('requirementphotos', 'assignsubmission_vrtour'), 'max' => 10],
+            ['kind' => 'pointsofinterest', 'label' => get_string('requirementpoints', 'assignsubmission_vrtour'), 'min' => 1],
+        ], $loaded['info']['requirements']);
+        $this->assertSame(tour_manager::done_url($this->cmid)->out(false), $loaded['info']['exit']['url']);
 
         // The load created no submission; the first upload would.
         $submission = $this->assign->get_user_submission($this->student->id, true);
@@ -366,5 +375,83 @@ final class editor_services_test extends \advanced_testcase {
         $revision = tour_manager::revision(tour_manager::get_row((int)$submission->id));
         $this->save([], $revision);
         $this->assertEquals(1000, $DB->get_field('assign_submission', 'timemodified', ['id' => $submission->id]));
+    }
+
+    /**
+     * With drafts, the first save that holds a photo turns a new or reopened submission into a draft,
+     * so the student and the grading table no longer say "No submission"; an empty save does not.
+     */
+    public function test_save_with_a_photo_makes_a_draft(): void {
+        global $DB;
+
+        $this->setUser($this->student);
+        $loaded = $this->load();
+        $submission = $this->assign->get_user_submission($this->student->id, true);
+        $this->assertSame(ASSIGN_SUBMISSION_STATUS_NEW, $submission->status);
+
+        // An empty tour is no submission yet.
+        $result = $this->save([], $loaded['document']['revision']);
+        $this->assertSame(ASSIGN_SUBMISSION_STATUS_NEW, $DB->get_field('assign_submission', 'status', ['id' => $submission->id]));
+
+        // The first photo makes it a draft, with the save's time, and logs the change.
+        $this->add_upload($this->assign, $submission, 1, 'room.jpg', $this->jpeg());
+        $sink = $this->redirectEvents();
+        $before = time();
+        $this->save([$this->photo_scene('a1', $this->ref(1, 'room.jpg'))], $result['revision']);
+        $events = $sink->get_events();
+        $sink->close();
+        $record = $DB->get_record('assign_submission', ['id' => $submission->id], '*', MUST_EXIST);
+        $this->assertSame(ASSIGN_SUBMISSION_STATUS_DRAFT, $record->status);
+        $this->assertGreaterThanOrEqual($before, (int)$record->timemodified);
+        $classes = array_map(fn($event) => get_class($event), $events);
+        $this->assertContains(\assignsubmission_vrtour\event\submission_updated::class, $classes);
+        // Nothing is handed in.
+        $this->assertNotContains(\mod_assign\event\assessable_submitted::class, $classes);
+
+        // A reopened attempt is made a draft the same way.
+        $DB->set_field('assign_submission', 'status', ASSIGN_SUBMISSION_STATUS_REOPENED, ['id' => $submission->id]);
+        $revision = tour_manager::revision(tour_manager::get_row((int)$submission->id));
+        $this->save([$this->photo_scene('a1', $this->ref(1, 'room.jpg'), [$this->hotspot('h1')])], $revision);
+        $this->assertSame(ASSIGN_SUBMISSION_STATUS_DRAFT, $DB->get_field('assign_submission', 'status', ['id' => $submission->id]));
+    }
+
+    /**
+     * Without drafts, an editor save never changes a new submission: only the submission form hands it in.
+     */
+    public function test_save_without_drafts_keeps_new(): void {
+        global $DB;
+
+        $assign = $this->create_tour_assign($this->course, ['submissiondrafts' => 0]);
+        $cmid = (int)$assign->get_course_module()->id;
+        $this->setUser($this->student);
+        $submission = $assign->get_user_submission($this->student->id, true);
+        $this->add_upload($assign, $submission, 1, 'room.jpg', $this->jpeg());
+        $revision = tour_manager::revision(tour_manager::get_row((int)$submission->id));
+        editor_save::execute($cmid, $this->document([$this->photo_scene('a1', $this->ref(1, 'room.jpg'))], $revision));
+        $this->assertSame(ASSIGN_SUBMISSION_STATUS_NEW, $DB->get_field('assign_submission', 'status', ['id' => $submission->id]));
+    }
+
+    /**
+     * In a group assignment the group's submission and the member's own row both become drafts.
+     */
+    public function test_save_makes_a_group_draft(): void {
+        global $DB;
+
+        $group = $this->getDataGenerator()->create_group(['courseid' => $this->course->id]);
+        $this->getDataGenerator()->create_group_member(['groupid' => $group->id, 'userid' => $this->student->id]);
+        $this->getDataGenerator()->create_group_member(['groupid' => $group->id, 'userid' => $this->other->id]);
+        $assign = $this->create_tour_assign($this->course, ['teamsubmission' => 1, 'preventsubmissionnotingroup' => 0]);
+        $cmid = (int)$assign->get_course_module()->id;
+        $this->setUser($this->student);
+        $groupsubmission = $assign->get_group_submission($this->student->id, 0, true);
+        $own = $assign->get_user_submission($this->student->id, true, (int)$groupsubmission->attemptnumber);
+        $this->add_upload($assign, $groupsubmission, 1, 'room.jpg', $this->jpeg());
+        $revision = tour_manager::revision(tour_manager::get_row((int)$groupsubmission->id));
+        editor_save::execute($cmid, $this->document([$this->photo_scene('a1', $this->ref(1, 'room.jpg'))], $revision));
+        $this->assertSame(
+            ASSIGN_SUBMISSION_STATUS_DRAFT,
+            $DB->get_field('assign_submission', 'status', ['id' => $groupsubmission->id])
+        );
+        $this->assertSame(ASSIGN_SUBMISSION_STATUS_DRAFT, $DB->get_field('assign_submission', 'status', ['id' => $own->id]));
     }
 }

@@ -512,8 +512,31 @@ final class tour_manager {
                 'logic' => false,
                 'questions' => false,
                 'kinds' => self::editor_kinds($settings),
+                // Every room of a tour is a photo, even before the first one exists (mod_vrroom R2).
+                'photoonly' => true,
+            ],
+            // Read by mod_vrroom's editor from the 2026-11-26 prototype on; older editors ignore them.
+            'emptystate' => [
+                'title' => get_string('emptystatetitle', self::COMPONENT),
+                'text' => get_string('emptystatetext', self::COMPONENT),
+            ],
+            'requirements' => [
+                ['kind' => 'scenes', 'label' => get_string('requirementphotos', self::COMPONENT), 'max' => $settings['maxphotos']],
             ],
         ];
+        if ($settings['minpoints'] > 0) {
+            $info['requirements'][] = [
+                'kind' => 'pointsofinterest',
+                'label' => get_string('requirementpoints', self::COMPONENT),
+                'min' => $settings['minpoints'],
+            ];
+        }
+        if (!$readonly) {
+            $info['exit'] = [
+                'label' => get_string('backtosubmission', self::COMPONENT),
+                'url' => self::done_url($cmid)->out(false),
+            ];
+        }
 
         return [
             'documentjson' => json_encode($document, self::JSON_FLAGS),
@@ -588,6 +611,8 @@ final class tour_manager {
             self::prune($assign->get_context(), (int)$submission->id, $scenes);
             if ($submitted) {
                 self::record_submitted_change($assign, $submission, $row, $before === null);
+            } else if (self::starts_draft($assign, $submission, $row)) {
+                self::record_draft($assign, $submission, $row, $before === null);
             }
         } finally {
             $lock->release();
@@ -600,6 +625,62 @@ final class tour_manager {
             'graphupdated' => false,
             'customised' => (int)$row->timemodified,
         ];
+    }
+
+    /**
+     * Whether this editor save should turn the submission into a draft.
+     *
+     * In an assignment with drafts, core's submission form makes a "new" (or "reopened") submission a
+     * draft when it is saved. The editor stores the tour on its own, so without this a student whose tour
+     * is saved still has "No submission", for them and in the grading table, until they go back and save
+     * the form. A tour with no photo yet does not count, as core counts an empty submission as none.
+     *
+     * @param \assign $assign The assignment.
+     * @param \stdClass $submission The assign_submission row.
+     * @param \stdClass $row The tour row as stored.
+     * @return bool
+     */
+    public static function starts_draft(\assign $assign, \stdClass $submission, \stdClass $row): bool {
+        return (bool)$assign->get_instance()->submissiondrafts
+            && in_array($submission->status, [ASSIGN_SUBMISSION_STATUS_NEW, ASSIGN_SUBMISSION_STATUS_REOPENED], true)
+            && (int)$row->numphotos > 0;
+    }
+
+    /**
+     * Make the submission a draft after the editor saved its first photo, as the submission form's save does.
+     *
+     * Like core's save_submission() with drafts: status draft and a new time, and for a group submission
+     * the member's own row too (update_team_submission()); no grader notification and no
+     * assessable_submitted, since nothing is handed in. The tour change is logged as the form's save logs it.
+     *
+     * @param \assign $assign The assignment.
+     * @param \stdClass $submission The assign_submission row (status new or reopened).
+     * @param \stdClass $row The tour row as stored.
+     * @param bool $isnew Whether the tour row was created by this save.
+     */
+    private static function record_draft(\assign $assign, \stdClass $submission, \stdClass $row, bool $isnew): void {
+        global $DB, $USER;
+
+        $now = (int)$row->timemodified;
+        $ids = [(int)$submission->id];
+        if ($assign->get_instance()->teamsubmission) {
+            $own = $assign->get_user_submission((int)$USER->id, false, (int)$submission->attemptnumber);
+            if (
+                $own && (int)$own->id !== (int)$submission->id
+                    && in_array($own->status, [ASSIGN_SUBMISSION_STATUS_NEW, ASSIGN_SUBMISSION_STATUS_REOPENED], true)
+            ) {
+                $ids[] = (int)$own->id;
+            }
+        }
+        [$insql, $params] = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED);
+        $DB->execute(
+            "UPDATE {assign_submission} SET status = :status, timemodified = :now WHERE id $insql",
+            ['status' => ASSIGN_SUBMISSION_STATUS_DRAFT, 'now' => $now] + $params
+        );
+        $submission->status = ASSIGN_SUBMISSION_STATUS_DRAFT;
+        $submission->timemodified = $now;
+
+        self::get_plugin($assign)->log_change($submission, $row, $isnew);
     }
 
     /**
@@ -1020,6 +1101,99 @@ final class tour_manager {
             'pluginsubtype' => 'assignsubmission',
             'pluginaction' => 'edit',
         ]);
+    }
+
+    /**
+     * Where the editor's Done and "Back to my submission" lead: the plugin's 'done' page, which
+     * redirects to the assignment with a note on what is left to do.
+     *
+     * @param int $cmid Course module id.
+     * @return \moodle_url
+     */
+    public static function done_url(int $cmid): \moodle_url {
+        return new \moodle_url('/mod/assign/view.php', [
+            'id' => $cmid,
+            'action' => 'viewpluginpage',
+            'plugin' => 'vrtour',
+            'pluginsubtype' => 'assignsubmission',
+            'pluginaction' => 'done',
+        ]);
+    }
+
+    /**
+     * A readable outline of a tour: each photo with its points of interest (title, kind, start of the
+     * text as plain text), the photos it links to, whether it is the start and whether a visitor can reach it.
+     *
+     * @param array $scenes The tour's rooms.
+     * @return array[] One entry per photo: number, name, start, reachable, points [title, kind, text], links (names).
+     */
+    public static function outline(array $scenes): array {
+        $names = [];
+        $edges = [];
+        foreach ($scenes as $i => $scene) {
+            if (!is_array($scene)) {
+                continue;
+            }
+            $id = (string)($scene['id'] ?? $i);
+            $names[$id] = trim((string)($scene['name'] ?? '')) ?: (string)($i + 1);
+            $edges[$id] = [];
+        }
+        $outline = [];
+        $number = 0;
+        foreach ($scenes as $i => $scene) {
+            if (!is_array($scene)) {
+                continue;
+            }
+            $id = (string)($scene['id'] ?? $i);
+            $points = [];
+            $links = [];
+            foreach (is_array($scene['interactables'] ?? null) ? $scene['interactables'] : [] as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $kind = (string)($item['kind'] ?? '');
+                if ($kind === 'portal') {
+                    $target = (string)($item['target']['scene'] ?? '');
+                    if (isset($names[$target])) {
+                        $edges[$id][] = $target;
+                        $links[] = $names[$target];
+                    }
+                    continue;
+                }
+                $content = is_array($item['content'] ?? null) ? $item['content'] : [];
+                $title = trim((string)($content['title'] ?? '')) ?: trim((string)($item['name'] ?? ''));
+                $text = (string)($content['text'] ?? ($item['text'] ?? ''));
+                $text = trim(preg_replace('/\s+/u', ' ', html_to_text($text, 0, false)));
+                $points[] = [
+                    'title' => $title,
+                    'kind' => in_array($kind, ['hotspot', 'image', 'text', 'media'], true) ? $kind : 'hotspot',
+                    'text' => shorten_text($text, 240),
+                ];
+            }
+            $outline[$id] = [
+                'number' => ++$number,
+                'name' => $names[$id],
+                'start' => $number === 1,
+                'reachable' => false,
+                'points' => $points,
+                'links' => $links,
+            ];
+        }
+        // A visitor starts in the first photo and moves by links.
+        $queue = array_slice(array_keys($outline), 0, 1);
+        while ($queue) {
+            $id = array_shift($queue);
+            if ($outline[$id]['reachable']) {
+                continue;
+            }
+            $outline[$id]['reachable'] = true;
+            foreach ($edges[$id] as $next) {
+                if (isset($outline[$next]) && !$outline[$next]['reachable']) {
+                    $queue[] = $next;
+                }
+            }
+        }
+        return array_values($outline);
     }
 
     /**

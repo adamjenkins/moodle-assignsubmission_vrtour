@@ -107,4 +107,43 @@ final class tour_manager_test extends \advanced_testcase {
             'a scene that breaks the scene rules' => ['scenerules'],
         ];
     }
+
+    /**
+     * The outline lists each photo's points with plain-text starts, its links, the start photo and the
+     * photos no link reaches.
+     */
+    public function test_outline(): void {
+        $ref = $this->ref(1, 'room.jpg');
+        $point = $this->hotspot('h1');
+        $point['content']['title'] = 'The <b>whale</b>';
+        $point['content']['text'] = '<p>Twenty <strong>metres</strong>   long.</p>';
+        $link = [
+            'id' => 'p1', 'kind' => 'portal', 'name' => 'To B',
+            'placement' => ['yaw' => 0, 'pitch' => 0, 'distance' => 4],
+            'target' => ['scene' => 'b', 'spawn' => 'sp-b'],
+        ];
+        $a = $this->photo_scene('a', $ref, [$point, $link]);
+        $a['name'] = 'Hall';
+        $b = $this->photo_scene('b', $ref);
+        $b['name'] = 'Garden';
+        $c = $this->photo_scene('c', $ref, [$this->hotspot('h2')]);
+        $c['name'] = 'Attic';
+
+        $outline = tour_manager::outline([$a, $b, $c]);
+        $this->assertCount(3, $outline);
+        $this->assertSame([1, 'Hall', true, true], [$outline[0]['number'], $outline[0]['name'], $outline[0]['start'],
+            $outline[0]['reachable']]);
+        $this->assertSame(['Garden'], $outline[0]['links']);
+        $this->assertCount(1, $outline[0]['points']);
+        // The title is kept as typed (escaped when shown); the text is reduced to plain text.
+        $this->assertSame('The <b>whale</b>', $outline[0]['points'][0]['title']);
+        $this->assertSame('hotspot', $outline[0]['points'][0]['kind']);
+        $this->assertSame('Twenty metres long.', $outline[0]['points'][0]['text']);
+        $this->assertTrue($outline[1]['reachable']);
+        $this->assertSame([], $outline[1]['points']);
+        $this->assertFalse($outline[1]['start']);
+        // No link leads to the attic.
+        $this->assertFalse($outline[2]['reachable']);
+        $this->assertSame([], tour_manager::outline([]));
+    }
 }

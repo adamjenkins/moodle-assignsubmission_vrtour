@@ -238,4 +238,70 @@ final class locallib_test extends \advanced_testcase {
         $expected = get_string('summary', 'assignsubmission_vrtour', (object)['photos' => 1, 'points' => 2]);
         $this->assertStringContainsString(s($expected), $summary);
     }
+
+    /**
+     * The summary says whether the tour can be handed in; the full view starts with a readable outline.
+     */
+    public function test_readiness_and_outline(): void {
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $assign = $this->create_tour_assign($course, ['assignsubmission_vrtour_minpoints' => 3]);
+        $plugin = $assign->get_submission_plugin_by_type('vrtour');
+        $this->setUser($student);
+
+        $submission = $this->give_tour($assign, $student, 2);
+        $showviewlink = false;
+        $summary = $plugin->view_summary($submission, $showviewlink);
+        $short = get_string('checkshort', 'assignsubmission_vrtour', (object)['points' => 2, 'min' => 3]);
+        $this->assertStringContainsString(s($short), $summary);
+        $this->assertStringContainsString('data-ready="0"', $summary);
+
+        $submission = $this->give_tour($assign, $student, 3);
+        $summary = $plugin->view_summary($submission, $showviewlink);
+        $ok = get_string('checkok', 'assignsubmission_vrtour', (object)['points' => 3, 'min' => 3]);
+        $this->assertStringContainsString(s($ok), $summary);
+        $this->assertStringContainsString('data-ready="1"', $summary);
+
+        $view = $plugin->view($submission);
+        $this->assertStringContainsString('data-region="assignsubmission_vrtour-outline"', $view);
+        $photo = get_string('outlinephoto', 'assignsubmission_vrtour', (object)[
+            'number' => 1,
+            'name' => 'Photo s' . $submission->id,
+        ]);
+        $this->assertStringContainsString(s($photo), $view);
+        $this->assertStringNotContainsString('[[', $view);
+    }
+
+    /**
+     * The submission form offers the editor as the main button, named for a new or a started tour, and
+     * warns about unsaved fields only when the form has other submission types.
+     */
+    public function test_form_entry(): void {
+        global $CFG;
+        require_once($CFG->libdir . '/formslib.php');
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $this->setUser($student);
+
+        $render = function (\assign $assign, $submission) use ($student): string {
+            $mform = new \MoodleQuickForm('test', 'post', '');
+            $assign->get_submission_plugin_by_type('vrtour')
+                ->get_form_elements_for_user($submission, $mform, new \stdClass(), $student->id);
+            return $mform->getElement('assignsubmission_vrtour_summary')->toHtml();
+        };
+
+        $assign = $this->create_tour_assign($course);
+        $html = $render($assign, null);
+        $this->assertStringContainsString('btn btn-primary', $html);
+        $this->assertStringContainsString(get_string('edittourstart', 'assignsubmission_vrtour'), $html);
+        $this->assertStringNotContainsString(get_string('edittournote', 'assignsubmission_vrtour'), $html);
+
+        $submission = $this->give_tour($assign, $student, 1);
+        $this->assertStringContainsString(get_string('edittourcontinue', 'assignsubmission_vrtour'), $render($assign, $submission));
+
+        $withtext = $this->create_tour_assign($course, ['assignsubmission_onlinetext_enabled' => 1]);
+        $this->assertStringContainsString(get_string('edittournote', 'assignsubmission_vrtour'), $render($withtext, null));
+    }
 }

@@ -30,7 +30,7 @@ Site settings (*Site administration > Plugins > Activity modules > Assignment > 
 Virtual tour*):
 
 - **Enabled by default** — whether new assignments have Virtual tour switched on (off by default).
-- **Largest media file** — the default largest image, audio or video file on a point of interest.
+- **Largest image, audio or video file** — the default largest file on a point of interest.
 
 The limits for 360° photos (largest width, largest file, and the widths of the smaller copies made
 for computers and phones) are VR room's settings, shared with teachers' photo rooms: *Site
@@ -39,19 +39,25 @@ defaults are 16384 pixels and 50 MB, with copies 8192 and 4096 pixels wide.
 
 Assignment settings (in the *Submission types* section, when Virtual tour is ticked):
 
-- **Most photos** (1 to 20, default 10).
-- **Fewest points of interest** (0 to 100, default 3). A tour with fewer cannot be submitted.
+- **Most photos in a tour** (1 to 20, default 10).
+- **Points of interest needed** (0 to 100, default 3). A tour with fewer cannot be submitted.
 - **Allow images / audio / video on points of interest** (all on by default). Text is always allowed.
-- **Largest media file** for this assignment.
+- **Largest image, audio or video file** for this assignment.
 
 ## How it works
 
-- The student presses *Add submission* (or *Edit submission*) and then *Edit the tour*. The room
-  editor opens with photo rooms only: the student uploads a 360° photo for each room, adds points
-  of interest and links between the photos, and presses *Save*. The tour is stored each time; the
-  student then goes back and saves (or submits) the submission as usual.
-- Graders see "Photos: N. Points of interest: M." in the submissions table, and open the tour in
-  the viewer from there.
+- The student presses *Add submission* (or *Edit submission*) and then *Build your tour* (or
+  *Continue your tour*). The room editor opens with photo rooms only, under a short three-step guide
+  and a "No 360° camera?" note: the student uploads a 360° photo for each room, adds points of
+  interest and links between the photos, and presses *Save*. The tour is stored each time.
+- In an assignment with drafts, the first save that holds a photo makes the submission a draft,
+  as saving the submission form does, so it no longer shows as "No submission". *Done* (or *Back to
+  my submission*) returns to the assignment page with a note on what is left: submit the draft, or,
+  without drafts, save the submission form to hand the tour in.
+- The submission summary says whether the tour has enough points of interest to be handed in.
+  Graders see it in the submissions table and the grader, where the expanded tour starts with a
+  readable outline (each photo, its points of interest with their text, its links, and any photo no
+  link reaches) above the 3D viewer. The full-page viewer leads graders back to grading.
 - Storage: one row per submission in `assignsubmission_vrtour` (the rooms as JSON) and the files in
   the `tour` file area, one folder per upload, with the smaller copies of a photo in its `variants/`
   folder. Files no room uses are deleted when the tour is saved.

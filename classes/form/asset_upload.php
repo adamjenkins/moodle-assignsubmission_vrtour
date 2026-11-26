@@ -57,6 +57,11 @@ class asset_upload extends \core_form\dynamic_form {
                 'maxwidth' => (int)$limits['maxwidth'],
                 'maxsize' => display_size((int)$limits['maxbytes']),
             ]));
+            $mform->addElement('static', 'nocamerahelp', '', \html_writer::tag(
+                'span',
+                s(get_string('uploadnocamera', 'assignsubmission_vrtour')),
+                ['class' => 'text-muted']
+            ));
         }
         $mform->addElement(
             'filemanager',
