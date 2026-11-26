@@ -4,15 +4,6 @@
 }
 
 .assignsubmission_vrtour-start {
-    display: none;
-}
-
-.assignsubmission_vrtour-editorwrap.is-empty {
-    min-height: 40rem;
-}
-
-.assignsubmission_vrtour-editorwrap.is-empty .assignsubmission_vrtour-start {
-    display: block;
     position: absolute;
     top: 0;
     left: 0;
@@ -21,6 +12,19 @@
     z-index: 5;
     overflow: auto;
     background-color: var(--bs-body-bg);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.assignsubmission_vrtour-editorwrap.is-empty {
+    min-height: 40rem;
+}
+
+.assignsubmission_vrtour-editorwrap.is-empty .assignsubmission_vrtour-start {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
 }
 
 .assignsubmission_vrtour-startcard {
@@ -84,12 +88,223 @@ body.assignsubmission-vrtour-empty .assignsubmission_vrtour-guide {
     gap: 0.5rem;
 }
 
+/* The next-step tip: amber edge while there is a next step (MAVR accent), green once the tour is ready. */
+.assignsubmission_vrtour-tip {
+    background-color: var(--bs-body-bg);
+    border: var(--bs-border-width) solid var(--bs-border-color);
+    border-left: 4px solid #ffc107;
+    border-radius: var(--bs-border-radius);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.assignsubmission_vrtour-tip.is-ready {
+    border-left-color: #2fbf71;
+}
+
+.assignsubmission_vrtour-tipicon {
+    display: inline-flex;
+    flex-shrink: 0;
+    color: #b38600;
+}
+
+.assignsubmission_vrtour-tip.is-ready .assignsubmission_vrtour-tipicon {
+    color: #1f8a50;
+}
+
+/* The one button the tip names gets an amber ring (MAVR focus/accent colour). */
+.assignsubmission_vrtour-editorwrap .btn.assignsubmission_vrtour-cue {
+    box-shadow: 0 0 0 3px #ffc107;
+}
+
 .assignsubmission_vrtour-guide > summary {
     color: var(--bs-link-color);
-    margin-left: 1.75rem;
+    margin-left: 1.625rem;
 }
 
 /* The next-step tip has nothing to say while the start card shows. */
 body.assignsubmission-vrtour-empty .assignsubmission_vrtour-tip {
     display: none;
+}
+
+/* MAVR shared chrome ("glass", VR room's .vrroom-glass): for what floats over the tour's photos. */
+.assignsubmission_vrtour-glass {
+    color: #f4f6f8;
+    background-color: rgba(18, 22, 28, 0.72);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    backdrop-filter: blur(12px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .assignsubmission_vrtour-glass {
+        background-color: rgba(18, 22, 28, 0.9);
+    }
+}
+
+/* The viewer, with the caption (moved inside the 3D view by the viewer script) and the opening panel. */
+.assignsubmission_vrtour-stage {
+    position: relative;
+}
+
+/* Top centre: VR room keeps the top-left corner for its progress panel and the top right for its buttons. */
+.assignsubmission_vrtour-caption {
+    position: absolute;
+    top: 0.75rem;
+    left: 50%;
+    z-index: 4;
+    max-width: 60%;
+    padding: 0.5rem 0.75rem;
+    text-align: center;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.assignsubmission_vrtour-caption[hidden] {
+    display: none;
+}
+
+.assignsubmission_vrtour-captiontitle {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.assignsubmission_vrtour-captioncue {
+    font-size: 0.9375rem;
+    color: rgba(244, 246, 248, 0.72);
+}
+
+.assignsubmission_vrtour-loading {
+    position: absolute;
+    top: 6rem;
+    left: 50%;
+    z-index: 6;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    transform: translateX(-50%);
+}
+
+.assignsubmission_vrtour-loading.is-gone {
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* The outline under the tour: its verdict line opens and closes the list of photos. */
+.assignsubmission_vrtour-outlinefold > summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.assignsubmission_vrtour-outlinefold > summary::-webkit-details-marker {
+    display: none;
+}
+
+.assignsubmission_vrtour-outlinefold > summary:focus-visible,
+.assignsubmission_vrtour-practice:focus-visible {
+    outline: 3px solid #ffc107;
+    outline-offset: 2px;
+}
+
+.assignsubmission_vrtour-outlinefold[open] .assignsubmission_vrtour-chevron {
+    transform: rotate(90deg);
+}
+
+/* MAVR motion: 160 ms fade and 6 px rise; none for people who ask for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+    .assignsubmission_vrtour-start,
+    .assignsubmission_vrtour-loading {
+        transition: opacity 160ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 160ms;
+    }
+
+    .assignsubmission_vrtour-editorwrap.is-empty .assignsubmission_vrtour-start {
+        transition: opacity 160ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s;
+    }
+
+    .assignsubmission_vrtour-chevron {
+        transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .assignsubmission_vrtour-tip.is-new,
+    .assignsubmission_vrtour-caption.is-new {
+        animation: assignsubmission_vrtour-rise 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .assignsubmission_vrtour-editorwrap .btn.assignsubmission_vrtour-cue {
+        animation: assignsubmission_vrtour-pulse 1.6s cubic-bezier(0.2, 0.8, 0.2, 1) 2;
+    }
+}
+
+@keyframes assignsubmission_vrtour-rise {
+    from {
+        opacity: 0;
+        translate: 0 6px;
+    }
+
+    to {
+        opacity: 1;
+        translate: 0 0;
+    }
+}
+
+@keyframes assignsubmission_vrtour-pulse {
+    0% {
+        box-shadow: 0 0 0 3px #ffc107;
+    }
+
+    50% {
+        box-shadow: 0 0 0 7px rgba(255, 193, 7, 0.35);
+    }
+
+    100% {
+        box-shadow: 0 0 0 3px #ffc107;
+    }
+}
+
+/* Phones: a smaller page heading on the tour's own pages, so the tour starts on the first screen. */
+@media (max-width: 575.98px) {
+    body.assignsubmission-vrtour-page #page-header .page-header-image {
+        display: none;
+    }
+
+    body.assignsubmission-vrtour-page #page-header h1 {
+        font-size: 1.25rem;
+    }
+
+    body.assignsubmission-vrtour-page #page-header .activity-dates {
+        font-size: 0.875rem;
+    }
+
+    body.assignsubmission-vrtour-page #page-header .breadcrumb {
+        margin-bottom: 0.25rem;
+        font-size: 0.875rem;
+    }
+
+    /* Under the viewer's row of buttons, clear of VR room's progress pill on the left. */
+    .assignsubmission_vrtour-caption {
+        top: 3.5rem;
+        left: auto;
+        right: 0.75rem;
+        max-width: calc(100% - 10.5rem);
+        padding: 0.25rem 0.5rem;
+        border-radius: 10px;
+        text-align: left;
+        transform: none;
+    }
+
+    .assignsubmission_vrtour-captiontitle {
+        font-size: 0.8125rem;
+        line-height: 1.25;
+    }
+
+    .assignsubmission_vrtour-captioncue {
+        display: -webkit-box;
+        overflow: hidden;
+        font-size: 0.75rem;
+        line-height: 1.25;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
 }

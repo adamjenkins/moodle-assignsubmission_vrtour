@@ -16,6 +16,11 @@
 - The grader's outline starts with a one-line verdict and shows a small picture of each photo.
 - The editor and the full-page viewer no longer carry Moodle 5.3's sticky "Previous / Next" bar.
 - The editor gets photo-only mode, an empty-state panel, a live requirements strip and an always-visible exit from VR room's editor, when the installed VR room supports them.
+- The full-page viewer shows the tour first, under a "Back to the assignment" (or "Back to grading") button. A caption in the 3D view says which photo is showing ("Photo 2 of 4: The music hall") and what there is to find in it; it stays in fullscreen. The outline comes after the tour: open for graders, folded to its one-line verdict for the student.
+- An "Opening the tour…" panel shows until the tour is ready.
+- The editor's next-step tip has an amber edge (green once the tour is ready), and the button it names gets an amber ring. The tip and the caption fade in when they change; the start card fades out when the first photo arrives. No motion for people who ask their device for less.
+- Floating panels use the MAVR shared "glass" look and line icons; amber focus rings on the outline and the practice photos.
+- On phones the tour's pages have a smaller heading, so the tour starts higher on the first screen.
 
 ## 0.1.3 (2026-11-15) — ALPHA
 

@@ -18,27 +18,31 @@
     @template assignsubmission_vrtour/outline
 
     A readable outline of a tour for graders: a one-line verdict, then each photo with a thumbnail, its
-    points of interest with their text, its links, and whether a visitor can reach it.
+    points of interest with their text, its links, and whether a visitor can reach it. The verdict is
+    always in view; the photos fold away under it (open for graders, folded for the student).
 
     Context variables required for this template:
+    * open - whether the list of photos starts open
     * ready - whether the tour meets the assignment's minimum
     * verdict - the counts line
     * unreachable - the warning about photos no link reaches, or empty
     * photos - list of {title, thumb, start, reachable, points: [{title, kind, text}], links: [{label}], nopoints}
 
     Example context (json):
-    {"ready": true, "verdict": "Photos: 2 · Points of interest: 3 (3 needed)", "unreachable": "",
+    {"open": true, "ready": true, "verdict": "Photos: 2 · Points of interest: 3 (3 needed)", "unreachable": "",
      "photos": [{"title": "Photo 1: Hall", "thumb": "", "start": true, "reachable": true,
                  "points": [{"title": "The whale", "kind": "Point of interest", "text": "Twenty metres long."}],
                  "links": [{"label": "Link to Garden"}], "nopoints": false}]}
 }}
-<section class="assignsubmission_vrtour-outline mt-2 mb-3" data-region="assignsubmission_vrtour-outline">
-    <h4 class="h6 text-uppercase text-body-secondary mb-2">{{#str}}outlineheading, assignsubmission_vrtour{{/str}}</h4>
-    <div class="d-flex flex-wrap gap-3 align-items-center border rounded p-2 mb-2 bg-body" data-region="assignsubmission_vrtour-verdict" data-ready="{{#ready}}1{{/ready}}{{^ready}}0{{/ready}}">
-        <span>{{#ready}}{{#pix}}i/valid, core, {{#str}}checkdone, assignsubmission_vrtour{{/str}}{{/pix}}{{/ready}}{{^ready}}{{#pix}}i/warning, core, {{#str}}checktodo, assignsubmission_vrtour{{/str}}{{/pix}}{{/ready}} <strong>{{verdict}}</strong></span>
-        {{#unreachable}}<span class="text-warning-emphasis">{{#pix}}i/warning, core{{/pix}} {{unreachable}}</span>{{/unreachable}}
-    </div>
-    <ol class="list-unstyled mb-0">
+<section class="assignsubmission_vrtour-outline mt-3 mb-3" data-region="assignsubmission_vrtour-outline">
+    <details class="assignsubmission_vrtour-outlinefold" {{#open}}open{{/open}}>
+        <summary class="d-flex flex-wrap gap-2 column-gap-3 align-items-center border rounded p-2 bg-body" data-region="assignsubmission_vrtour-verdict" data-ready="{{#ready}}1{{/ready}}{{^ready}}0{{/ready}}">
+            <svg class="assignsubmission_vrtour-chevron" aria-hidden="true" focusable="false" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+            <h4 class="h6 mb-0 text-uppercase text-body-secondary">{{#str}}outlineheading, assignsubmission_vrtour{{/str}}</h4>
+            <span>{{#ready}}{{#pix}}i/valid, core, {{#str}}checkdone, assignsubmission_vrtour{{/str}}{{/pix}}{{/ready}}{{^ready}}{{#pix}}i/warning, core, {{#str}}checktodo, assignsubmission_vrtour{{/str}}{{/pix}}{{/ready}} <strong>{{verdict}}</strong></span>
+            {{#unreachable}}<span class="text-warning-emphasis">{{#pix}}i/warning, core{{/pix}} {{unreachable}}</span>{{/unreachable}}
+        </summary>
+        <ol class="list-unstyled mb-0 mt-2">
         {{#photos}}
         <li class="d-flex gap-3 mb-3">
             {{#thumb}}<img class="assignsubmission_vrtour-thumb rounded flex-shrink-0" src="{{thumb}}" alt="" width="128" height="64" loading="lazy">{{/thumb}}
@@ -54,5 +58,6 @@
             </div>
         </li>
         {{/photos}}
-    </ol>
+        </ol>
+    </details>
 </section>

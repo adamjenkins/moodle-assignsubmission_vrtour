@@ -240,7 +240,8 @@ final class locallib_test extends \advanced_testcase {
     }
 
     /**
-     * The summary says whether the tour can be handed in; the full view starts with a readable outline.
+     * The summary says whether the tour can be handed in; the full view shows the tour, with a caption
+     * for each photo, then a readable outline, folded for the student and open for a grader.
      */
     public function test_readiness_and_outline(): void {
         $this->resetAfterTest();
@@ -271,6 +272,45 @@ final class locallib_test extends \advanced_testcase {
         ]);
         $this->assertStringContainsString(s($photo), $view);
         $this->assertStringNotContainsString('[[', $view);
+        $this->assertStringContainsString('data-region="assignsubmission_vrtour-stage"', $view);
+        $this->assertLessThan(
+            strpos($view, 'data-region="assignsubmission_vrtour-outline"'),
+            strpos($view, 'data-region="assignsubmission_vrtour-stage"')
+        );
+        $this->assertDoesNotMatchRegularExpression('/<details[^>]*\bopen\b/', $view);
+
+        $this->setAdminUser();
+        $this->assertMatchesRegularExpression('/<details[^>]*\bopen\b/', $plugin->view($submission));
+    }
+
+    /**
+     * The caption over the viewer names each photo, counts its points of interest and its links.
+     */
+    public function test_captions(): void {
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $assign = $this->create_tour_assign($course);
+        $plugin = $assign->get_submission_plugin_by_type('vrtour');
+        $scenes = [
+            ['id' => 'a', 'name' => 'Hall', 'interactables' => [
+                ['kind' => 'hotspot', 'content' => ['title' => 'Whale', 'text' => 'Big']],
+                ['kind' => 'hotspot', 'content' => ['title' => 'Lion', 'text' => 'Old']],
+                ['kind' => 'portal', 'target' => ['scene' => 'b']],
+            ]],
+            ['id' => 'b', 'name' => 'Garden', 'interactables' => []],
+        ];
+        $method = new \ReflectionMethod($plugin, 'captions');
+        $captions = $method->invoke($plugin, $scenes);
+        $this->assertSame(['a', 'b'], array_keys($captions));
+        $this->assertSame(get_string('captionphoto', 'assignsubmission_vrtour', (object)[
+            'number' => 1, 'total' => 2, 'name' => 'Hall',
+        ]), $captions['a']['title']);
+        $this->assertSame(
+            get_string('captionpoints', 'assignsubmission_vrtour', 2) . ' · ' .
+                get_string('captionlinks', 'assignsubmission_vrtour', 'Garden'),
+            $captions['a']['cue']
+        );
+        $this->assertSame(get_string('captionnopoints', 'assignsubmission_vrtour'), $captions['b']['cue']);
     }
 
     /**
@@ -322,7 +362,9 @@ final class locallib_test extends \advanced_testcase {
             'nocamera' => ['open' => true],
             'start_card' => ['requirements' => 'x', 'practice' => [['name' => 'Museum hall', 'thumb' => '#', 'url' => '#']],
                 'nocamera' => ['open' => true]],
-            'outline' => ['ready' => false, 'verdict' => 'x', 'unreachable' => 'y', 'photos' => [['title' => 't', 'thumb' => '#',
+            'stage' => ['rootid' => 'x'],
+            'outline' => ['open' => false, 'ready' => false, 'verdict' => 'x', 'unreachable' => 'y',
+                'photos' => [['title' => 't', 'thumb' => '#',
                 'start' => true, 'reachable' => false, 'nopoints' => true, 'points' => [], 'links' => []]]],
         ];
         foreach ($contexts as $name => $context) {

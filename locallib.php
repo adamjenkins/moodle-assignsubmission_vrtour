@@ -42,6 +42,16 @@ use mod_vrroom\local\panorama;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class assign_submission_vrtour extends assign_submission_plugin {
+    /** @var string The MAVR line icons (VR room's shared chrome): arrow back, 16 px, for links that leave a page. */
+    private const BACK_ICON = '<svg aria-hidden="true" focusable="false" width="16" height="16" viewBox="0 0 24 24" fill="none" '
+        . 'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        . '<path d="M19 12H5M12 19l-7-7 7-7"/></svg>';
+
+    /** @var string Light bulb line icon for the next-step tip. */
+    private const TIP_ICON = '<svg aria-hidden="true" focusable="false" width="18" height="18" viewBox="0 0 24 24" fill="none" '
+        . 'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        . '<path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>';
+
     /**
      * The name of the plugin.
      *
@@ -496,9 +506,10 @@ class assign_submission_vrtour extends assign_submission_plugin {
      *
      * @param array $scenes The tour's rooms.
      * @param int $submissionid The submission, for the thumbnails.
+     * @param bool $open Whether the list of photos starts open (the verdict line always shows).
      * @return string HTML.
      */
-    private function outline_html(array $scenes, int $submissionid): string {
+    private function outline_html(array $scenes, int $submissionid, bool $open = true): string {
         global $OUTPUT;
 
         $scenes = array_values(array_filter($scenes, 'is_array'));
@@ -545,6 +556,7 @@ class assign_submission_vrtour extends assign_submission_plugin {
             'min' => $min,
         ]);
         return $OUTPUT->render_from_template('assignsubmission_vrtour/outline', [
+            'open' => $open,
             'ready' => $photocount > 0 && $pointcount >= $min,
             'verdict' => $verdict,
             'unreachable' => $unreachable ? get_string('verdictunreachable', 'assignsubmission_vrtour', $unreachable) : '',
@@ -596,7 +608,7 @@ class assign_submission_vrtour extends assign_submission_plugin {
      * @return string
      */
     public function view(stdClass $submission) {
-        global $PAGE;
+        global $OUTPUT, $PAGE;
 
         $config = tour_manager::viewer_config($this->assignment, $submission);
         if ($config === null) {
@@ -608,14 +620,59 @@ class assign_submission_vrtour extends assign_submission_plugin {
             $config,
             JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
         );
-        $PAGE->requires->js_call_amd('assignsubmission_vrtour/viewer', 'init', [['rootid' => $rootid, 'configid' => $configid]]);
+        $scenes = tour_manager::scenes(tour_manager::get_row((int)$submission->id));
+        $PAGE->requires->js_call_amd('assignsubmission_vrtour/viewer', 'init', [[
+            'rootid' => $rootid,
+            'configid' => $configid,
+            'captions' => $this->captions($scenes),
+        ]]);
 
-        $outline = $this->outline_html(tour_manager::scenes(tour_manager::get_row((int)$submission->id)), (int)$submission->id);
-        return $outline . html_writer::div('', 'vrroom-root assignsubmission_vrtour-viewer', [
-                'id' => $rootid,
-                'data-region' => 'vrroom-root',
-            ]) .
-            html_writer::tag('script', $json, ['type' => 'application/json', 'id' => $configid]);
+        // The tour first, then the outline: open for graders, folded for the student, who made it.
+        $grader = has_capability('mod/assign:grade', $this->assignment->get_context());
+        $stage = $OUTPUT->render_from_template('assignsubmission_vrtour/stage', ['rootid' => $rootid]);
+        return $stage .
+            html_writer::tag('script', $json, ['type' => 'application/json', 'id' => $configid]) .
+            $this->outline_html($scenes, (int)$submission->id, $grader);
+    }
+
+    /**
+     * What the caption over the viewer says for each photo: "Photo 2 of 4: The music hall", and what
+     * there is to find in it.
+     *
+     * @param array $scenes The tour's rooms.
+     * @return array {sceneid: {title, cue}}
+     */
+    private function captions(array $scenes): array {
+        $scenes = array_values(array_filter($scenes, 'is_array'));
+        $outline = tour_manager::outline($scenes);
+        $total = count($outline);
+        $captions = [];
+        foreach ($outline as $i => $photo) {
+            $id = (string)($scenes[$i]['id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            $count = count($photo['points']);
+            if ($count === 0) {
+                $cue = get_string('captionnopoints', 'assignsubmission_vrtour');
+            } else if ($count === 1) {
+                $cue = get_string('captiononepoint', 'assignsubmission_vrtour');
+            } else {
+                $cue = get_string('captionpoints', 'assignsubmission_vrtour', $count);
+            }
+            if ($photo['links']) {
+                $cue .= ' · ' . get_string('captionlinks', 'assignsubmission_vrtour', implode(', ', $photo['links']));
+            }
+            $captions[$id] = [
+                'title' => get_string('captionphoto', 'assignsubmission_vrtour', (object)[
+                    'number' => $photo['number'],
+                    'total' => $total,
+                    'name' => $photo['name'],
+                ]),
+                'cue' => $cue,
+            ];
+        }
+        return $captions;
     }
 
     /**
@@ -680,6 +737,7 @@ class assign_submission_vrtour extends assign_submission_plugin {
         $rootid = 'vrroom-editor-' . $cmid;
         $wrapid = 'assignsubmission_vrtour-editorwrap-' . $cmid;
         $PAGE->add_body_class('vrroom-editor-page');
+        $PAGE->add_body_class('assignsubmission-vrtour-page');
         if (!$hasphoto) {
             $PAGE->add_body_class('assignsubmission-vrtour-empty');
         }
@@ -714,8 +772,9 @@ class assign_submission_vrtour extends assign_submission_plugin {
                 }
                 var tips = ' . json_encode($tips) . ';
                 var tiptext = document.querySelector(\'[data-region="assignsubmission_vrtour-tiptext"]\');
+                var tipbox = document.querySelector(\'[data-region="assignsubmission_vrtour-tip"]\');
                 var showtip = function() {
-                    if (!tiptext) {
+                    if (!tiptext || !tipbox) {
                         return;
                     }
                     var missing = tips.min - tips.points;
@@ -729,6 +788,27 @@ class assign_submission_vrtour extends assign_submission_plugin {
                     }
                     if (tiptext.innerHTML !== html) {
                         tiptext.innerHTML = html;
+                        // A short fade and rise, so a new step is noticed (none with reduced motion: styles.css).
+                        tipbox.classList.remove("is-new");
+                        void tipbox.offsetWidth;
+                        tipbox.classList.add("is-new");
+                    }
+                    var ready = html === tips.ready;
+                    tipbox.classList.toggle("is-ready", ready);
+                    // An amber ring on the one button the tip names.
+                    var target = ready ? wrap.querySelector(\'[data-region="vrroom-editor-exit"]\') :
+                        wrap.querySelector(\'[data-region="vrroom-editor-addbuttons"] \' +
+                            \'[data-action="vrroom-editor-add"][data-kind="hotspot"]\');
+                    wrap.querySelectorAll(".assignsubmission_vrtour-cue").forEach(function(el) {
+                        if (el !== target) {
+                            el.classList.remove("assignsubmission_vrtour-cue");
+                        }
+                    });
+                    // No ring while the start card covers the editor.
+                    if (target && !wrap.classList.contains("is-empty")) {
+                        target.classList.add("assignsubmission_vrtour-cue");
+                    } else if (target) {
+                        target.classList.remove("assignsubmission_vrtour-cue");
                     }
                 };
                 var update = function() {
@@ -749,7 +829,10 @@ class assign_submission_vrtour extends assign_submission_plugin {
                 });
                 showtip();
                 new MutationObserver(function() {
-                    window.requestAnimationFrame(update);
+                    window.requestAnimationFrame(function() {
+                        update();
+                        showtip();
+                    });
                 }).observe(wrap.querySelector(\'[data-region="vrroom-editor-outline"]\') || wrap,
                     {childList: true, subtree: true});
                 wrap.addEventListener("click", function(e) {
@@ -776,12 +859,12 @@ class assign_submission_vrtour extends assign_submission_plugin {
         // current by the script above), with the guide as a small toggle under it.
         $o .= html_writer::div(
             html_writer::div(
-                $OUTPUT->pix_icon('i/info', '') .
+                html_writer::span(self::TIP_ICON, 'assignsubmission_vrtour-tipicon') .
                 html_writer::span(get_string('tiplabel', 'assignsubmission_vrtour'), 'visually-hidden') .
                 html_writer::span('', '', ['data-region' => 'assignsubmission_vrtour-tiptext', 'aria-live' => 'polite']),
                 'assignsubmission_vrtour-tiprow'
             ) . $this->editor_guide_html(),
-            'assignsubmission_vrtour-tip alert alert-light border py-2 mb-2',
+            'assignsubmission_vrtour-tip py-2 px-3 mb-2',
             ['data-region' => 'assignsubmission_vrtour-tip']
         );
         $start = $OUTPUT->render_from_template('assignsubmission_vrtour/start_card', [
@@ -950,7 +1033,10 @@ class assign_submission_vrtour extends assign_submission_plugin {
      * @return string
      */
     private function view_viewer_page(): string {
+        global $PAGE;
+
         $this->hide_navigation_footer();
+        $PAGE->add_body_class('assignsubmission-vrtour-page');
         $assign = $this->assignment;
         $cm = $assign->get_course_module();
         require_login($assign->get_course(), false, $cm);
@@ -965,9 +1051,8 @@ class assign_submission_vrtour extends assign_submission_plugin {
             (int)$cm->id,
             $this->get_name()
         ));
-        $o .= html_writer::tag('p', s($this->summary_text($submission)));
-        $o .= $this->view($submission);
-        // Graders go back to the submissions they were grading; students to their assignment page.
+        // Graders go back to the submissions they were grading; students to their assignment page. The
+        // way back is above the tour, so it is on a phone's first screen.
         if (has_capability('mod/assign:grade', $assign->get_context())) {
             $back = new moodle_url('/mod/assign/view.php', ['id' => $cm->id, 'action' => 'grading']);
             $backlabel = get_string('backtograding', 'assignsubmission_vrtour');
@@ -975,7 +1060,13 @@ class assign_submission_vrtour extends assign_submission_plugin {
             $back = new moodle_url('/mod/assign/view.php', ['id' => $cm->id]);
             $backlabel = get_string('backtoassignment', 'assignsubmission_vrtour');
         }
-        $o .= html_writer::div(html_writer::link($back, $backlabel), 'mt-3');
+        $o .= html_writer::div(
+            html_writer::link($back, self::BACK_ICON . ' ' . s($backlabel), [
+                'class' => 'btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1',
+            ]),
+            'mb-2 assignsubmission_vrtour-viewback'
+        );
+        $o .= $this->view($submission);
         $o .= $renderer->render_footer();
 
         \mod_assign\event\submission_viewed::create_from_submission($assign, $submission)->trigger();

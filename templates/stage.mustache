@@ -1,0 +1,39 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template assignsubmission_vrtour/stage
+
+    The tour viewer's place on the page: the viewer's root, a caption that the viewer script moves into
+    the 3D view (which photo is showing and what is in it), and a panel shown while the tour opens.
+
+    Context variables required for this template:
+    * rootid - id of the viewer's root element
+
+    Example context (json):
+    {"rootid": "assignsubmission_vrtour-viewer-1"}
+}}
+<div class="assignsubmission_vrtour-stage" data-region="assignsubmission_vrtour-stage">
+    <div class="vrroom-root assignsubmission_vrtour-viewer" id="{{rootid}}" data-region="vrroom-root"></div>
+    <div class="assignsubmission_vrtour-caption assignsubmission_vrtour-glass" data-region="assignsubmission_vrtour-caption" aria-live="polite" hidden>
+        <div class="assignsubmission_vrtour-captiontitle" data-region="assignsubmission_vrtour-captiontitle"></div>
+        <div class="assignsubmission_vrtour-captioncue" data-region="assignsubmission_vrtour-captioncue"></div>
+    </div>
+    <div class="assignsubmission_vrtour-loading assignsubmission_vrtour-glass" data-region="assignsubmission_vrtour-loading" role="status">
+        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+        <span>{{#str}}openingtour, assignsubmission_vrtour{{/str}}</span>
+    </div>
+</div>
