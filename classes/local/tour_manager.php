@@ -944,6 +944,32 @@ final class tour_manager {
      * @return string
      */
     public static function small_copy_url(\stored_file $file): string {
+        return self::mobile_copy_url($file) ?? self::file_url($file);
+    }
+
+    /**
+     * Whether a photo is no wider than VR room's phone-sized copies, so that it needs no smaller copy.
+     *
+     * @param \stored_file $file The photo.
+     * @return bool False when the width or the setting is unknown.
+     */
+    public static function fits_phone(\stored_file $file): bool {
+        if (!method_exists(panorama::class, 'mobile_width')) {
+            return false;
+        }
+        $info = $file->get_imageinfo();
+        $width = is_array($info) ? (int)($info['width'] ?? 0) : 0;
+        $limit = panorama::mobile_width();
+        return $width > 0 && $limit > 0 && $width <= $limit;
+    }
+
+    /**
+     * The URL of a photo's phone-sized copy, or null when it has none.
+     *
+     * @param \stored_file $file The photo (directly in /N/).
+     * @return string|null
+     */
+    public static function mobile_copy_url(\stored_file $file): ?string {
         $copies = get_file_storage()->get_directory_files(
             $file->get_contextid(),
             self::COMPONENT,
@@ -958,7 +984,7 @@ final class tour_manager {
                 return self::file_url($copy);
             }
         }
-        return self::file_url($file);
+        return null;
     }
 
     /**
@@ -1093,7 +1119,8 @@ final class tour_manager {
      *
      * @param \stored_file $file A file directly in /N/.
      * @param string|null $kind The kind to report (the upload form says 'panorama'); null takes it from the name.
-     * @return array {area: 'assets', itemid: N, filepath: '/', filename, url, mimetype, kind, filesize, panorama?}
+     * @return array {area: 'assets', itemid: N, filepath: '/', filename, url, mimetype, kind, filesize, panorama?,
+     *     thumburl?, variants?: {mobile}}
      */
     public static function asset_entry(\stored_file $file, ?string $kind = null): array {
         $entry = [
@@ -1109,7 +1136,16 @@ final class tour_manager {
         if ($kind === 'panorama' || ($entry['kind'] === 'image' && self::is_panorama_file($file))) {
             $entry['panorama'] = true;
             // The editor's photo strip shows this small copy rather than the whole photo.
-            $entry['thumburl'] = self::small_copy_url($file);
+            $mobile = self::mobile_copy_url($file);
+            $entry['thumburl'] = $mobile ?? self::file_url($file);
+            // The editor's photo panel shows a picture only from variants.mobile (VR room's own assets carry it).
+            // A photo no wider than the phone size gets no copy: it is its own phone-sized picture.
+            if ($mobile === null && self::fits_phone($file)) {
+                $mobile = self::file_url($file);
+            }
+            if ($mobile !== null) {
+                $entry['variants'] = ['mobile' => $mobile];
+            }
         }
         return $entry;
     }

@@ -38,8 +38,8 @@ const LOADING_MS = 20000;
  * Keep the caption (which photo this is and what is in it) and the loading panel in step with the viewer.
  *
  * The caption sits inside the viewer's viewport, so it stays in view in fullscreen. The viewer says
- * which photo it shows through a 'vrroom:scenechange' event where it sends one; otherwise the
- * caption asks root.vrroomTest.currentScene() now and then.
+ * which photo it shows through a 'vrroom:scenechange' event; with an older viewer that sends none,
+ * the caption asks root.vrroomTest.currentScene() now and then.
  *
  * @param {HTMLElement} root The viewer root.
  * @param {HTMLElement} stage The element around the root, holding the caption and the loading panel.
@@ -94,8 +94,13 @@ const followScenes = (root, stage, captions) => {
         }
     };
 
+    // VR room sends 'vrroom:scenechange' from 2026-11-26 (8e97ee0) on; the first one ends the poll.
     root.addEventListener('vrroom:scenechange', (e) => {
-        if (e.detail && e.detail.sceneid) {
+        if (timer !== null) {
+            window.clearInterval(timer);
+            timer = null;
+        }
+        if (e.detail && e.detail.sceneid && root.dataset.vrroomReady === '3d') {
             show(e.detail.sceneid);
         }
     });
@@ -103,6 +108,7 @@ const followScenes = (root, stage, captions) => {
     timer = window.setInterval(() => {
         if (!document.body.contains(root)) {
             window.clearInterval(timer);
+            timer = null;
             return;
         }
         check();

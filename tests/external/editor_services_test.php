@@ -143,6 +143,10 @@ final class editor_services_test extends \advanced_testcase {
         $this->assertSame('/', $again['assets'][0]['filepath']);
         $this->assertTrue($again['assets'][0]['panorama']);
         $this->assertNotEmpty($again['assets'][0]['thumburl']);
+        // A photo with a phone-sized copy lists it where VR room's photo panel looks for its picture.
+        // The test photo is far narrower than a phone-sized copy, so it gets no copy and is its own small picture.
+        $this->assertSame($again['assets'][0]['url'], $again['assets'][0]['thumburl']);
+        $this->assertSame($again['assets'][0]['url'], $again['assets'][0]['variants']['mobile']);
         $row = tour_manager::get_row((int)$submission->id);
         $this->assertSame(1, (int)$row->numphotos);
         $this->assertSame(1, (int)$row->numpoints);

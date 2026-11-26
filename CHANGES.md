@@ -21,6 +21,7 @@
 - The editor's next-step tip has an amber edge (green once the tour is ready), and the button it names gets an amber ring. The tip and the caption fade in when they change; the start card fades out when the first photo arrives. No motion for people who ask their device for less.
 - Floating panels use the MAVR shared "glass" look and line icons; amber focus rings on the outline and the practice photos.
 - On phones the tour's pages have a smaller heading, so the tour starts higher on the first screen.
+- The editor's photo panel shows a small picture of the chosen photo instead of a grey "360° photo" box: the tour now lists each photo's phone-sized copy where VR room's editor looks for it.
 
 ## 0.1.3 (2026-11-15) — ALPHA
 
