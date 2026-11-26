@@ -161,33 +161,81 @@ class assign_submission_vrtour extends assign_submission_plugin {
      * @return bool
      */
     public function get_form_elements_for_user($submission, MoodleQuickForm $mform, stdClass $data, $userid) {
-        global $USER;
+        global $OUTPUT, $USER;
 
-        $html = html_writer::tag('p', s($this->summary_text($submission ?: null)));
         $scenes = $submission ? tour_manager::scenes(tour_manager::get_row((int)$submission->id)) : [];
-        if ($scenes) {
-            $html .= $this->readiness_html($scenes);
-        } else {
-            $html .= html_writer::tag('p', s($this->requirements_text()), ['class' => 'text-muted']);
-        }
+        $context = [
+            'started' => (bool)$scenes,
+            'items' => $this->checklist($scenes),
+            'editurl' => null,
+            'editlabel' => '',
+            'note' => '',
+            'owneronly' => '',
+            'hidesave' => 0,
+        ];
         $cmid = (int)$this->assignment->get_course_module()->id;
         if ((int)$userid === (int)$USER->id && $this->assignment->can_edit_submission($USER->id)) {
-            $label = get_string($scenes ? 'edittourcontinue' : 'edittourstart', 'assignsubmission_vrtour');
-            $html .= html_writer::link(tour_manager::edit_url($cmid), $label, [
-                'class' => 'btn btn-primary',
-                'data-region' => 'assignsubmission_vrtour-edit',
-            ]);
-            // The warning about unsaved changes matters only when the form has other fields to lose.
+            $context['editurl'] = tour_manager::edit_url($cmid)->out(false);
+            $context['editlabel'] = get_string($scenes ? 'edittourcontinue' : 'edittourstart', 'assignsubmission_vrtour');
             if ($this->other_submission_plugins_enabled()) {
-                $html .= html_writer::tag('p', get_string('edittournote', 'assignsubmission_vrtour'), [
-                    'class' => 'form-text text-muted',
-                ]);
+                // The form has other fields to lose, and its Save is needed for them.
+                $context['note'] = get_string('edittournote', 'assignsubmission_vrtour');
+            } else if ($this->assignment->get_instance()->submissiondrafts) {
+                // The editor's save already makes the draft: one way forward, into the editor.
+                $context['hidesave'] = 1;
             }
         } else {
-            $html .= html_writer::tag('p', get_string('owneronly', 'assignsubmission_vrtour'), ['class' => 'text-muted']);
+            $context['owneronly'] = get_string('owneronly', 'assignsubmission_vrtour');
         }
+        $html = $OUTPUT->render_from_template('assignsubmission_vrtour/form_card', $context);
         $mform->addElement('static', 'assignsubmission_vrtour_summary', $this->get_name(), $html);
         return true;
+    }
+
+    /**
+     * What a tour still needs before it can be handed in, as checklist items.
+     *
+     * @param array $scenes The tour's rooms.
+     * @return array[] {done, label, count}
+     */
+    private function checklist(array $scenes): array {
+        [$photos, $points] = tour_manager::counts($scenes);
+        $min = tour_manager::settings($this)['minpoints'];
+        $items = [[
+            'done' => $photos > 0,
+            'label' => get_string('needphoto', 'assignsubmission_vrtour'),
+            'count' => get_string('sofar', 'assignsubmission_vrtour', $photos),
+        ]];
+        if ($min > 0) {
+            $items[] = [
+                'done' => $points >= $min,
+                'label' => get_string('needpoints', 'assignsubmission_vrtour', $min),
+                'count' => get_string('sofar', 'assignsubmission_vrtour', $points),
+            ];
+        }
+        return $items;
+    }
+
+    /**
+     * What the tour still needs, as one phrase ("1 more point of interest"), or null when it is ready.
+     *
+     * @param array $scenes The tour's rooms.
+     * @return string|null
+     */
+    private function still_needed(array $scenes): ?string {
+        [$photos, $points] = tour_manager::counts($scenes);
+        $min = tour_manager::settings($this)['minpoints'];
+        $needs = [];
+        if ($photos < 1) {
+            $needs[] = get_string('needaphoto', 'assignsubmission_vrtour');
+        }
+        if ($points < $min) {
+            $missing = $min - $points;
+            $needs[] = $missing === 1
+                ? get_string('needonepoint', 'assignsubmission_vrtour')
+                : get_string('needmorepoints', 'assignsubmission_vrtour', $missing);
+        }
+        return $needs ? implode(', ', $needs) : null;
     }
 
     /**
@@ -442,64 +490,66 @@ class assign_submission_vrtour extends assign_submission_plugin {
     }
 
     /**
-     * A readable outline of the tour for graders and screen readers: each photo, its points of interest
-     * with the start of their text, its links, and the photos no link leads to.
+     * A readable outline of the tour for graders and screen readers: a one-line verdict, then each photo
+     * with a thumbnail, its points of interest with the start of their text, its links, and the photos
+     * no link leads to.
      *
      * @param array $scenes The tour's rooms.
+     * @param int $submissionid The submission, for the thumbnails.
      * @return string HTML.
      */
-    private function outline_html(array $scenes): string {
+    private function outline_html(array $scenes, int $submissionid): string {
+        global $OUTPUT;
+
+        $scenes = array_values(array_filter($scenes, 'is_array'));
         $outline = tour_manager::outline($scenes);
         if (!$outline) {
             return '';
         }
-        $items = '';
-        foreach ($outline as $photo) {
-            $body = '';
-            if ($photo['start']) {
-                $body .= html_writer::div(s(get_string('outlinestart', 'assignsubmission_vrtour')), 'text-muted small');
-            }
-            if (!$photo['reachable']) {
-                $body .= html_writer::div(s(get_string('outlineunreachable', 'assignsubmission_vrtour')), 'text-warning small');
-            }
-            $points = '';
+        $context = $this->assignment->get_context();
+        [$photocount, $pointcount] = tour_manager::counts($scenes);
+        $min = tour_manager::settings($this)['minpoints'];
+        $unreachable = 0;
+        $photos = [];
+        foreach ($outline as $i => $photo) {
+            $unreachable += $photo['reachable'] ? 0 : 1;
+            $points = [];
             foreach ($photo['points'] as $point) {
-                $line = html_writer::tag('strong', s($point['title']));
-                $line .= ' ' . html_writer::span(
-                    '(' . s(get_string('kind_' . $point['kind'], 'assignsubmission_vrtour')) . ')',
-                    'text-muted small'
-                );
-                if ($point['text'] !== '') {
-                    $line .= html_writer::div(s($point['text']), 'small');
-                }
-                $points .= html_writer::tag('li', $line);
+                $points[] = [
+                    'title' => $point['title'],
+                    'kind' => get_string('kind_' . $point['kind'], 'assignsubmission_vrtour'),
+                    'text' => $point['text'],
+                ];
             }
+            $links = [];
             foreach ($photo['links'] as $target) {
-                $points .= html_writer::tag(
-                    'li',
-                    s(get_string('outlinelink', 'assignsubmission_vrtour', $target)),
-                    ['class' => 'text-muted small']
-                );
+                $links[] = ['label' => get_string('outlinelink', 'assignsubmission_vrtour', $target)];
             }
-            if (!$photo['points']) {
-                $body .= html_writer::div(s(get_string('outlinenopoints', 'assignsubmission_vrtour')), 'text-muted small');
-            }
-            if ($points !== '') {
-                $body .= html_writer::tag('ul', $points, ['class' => 'mb-1']);
-            }
-            $title = get_string('outlinephoto', 'assignsubmission_vrtour', (object)[
-                'number' => $photo['number'],
-                'name' => $photo['name'],
-            ]);
-            $items .= html_writer::tag('li', html_writer::div(s($title), 'fw-bold') . $body, ['class' => 'mb-2']);
+            $ref = $scenes[$i]['environment']['file'] ?? null;
+            $photos[] = [
+                'title' => get_string('outlinephoto', 'assignsubmission_vrtour', (object)[
+                    'number' => $photo['number'],
+                    'name' => $photo['name'],
+                ]),
+                'thumb' => is_array($ref) ? tour_manager::thumb_url($context, $submissionid, $ref) : null,
+                'start' => $photo['start'],
+                'reachable' => $photo['reachable'],
+                'nopoints' => !$photo['points'],
+                'points' => $points,
+                'links' => $links,
+            ];
         }
-        return html_writer::tag(
-            'details',
-            html_writer::tag('summary', s(get_string('outlineheading', 'assignsubmission_vrtour'))) .
-            html_writer::tag('ol', $items, ['class' => 'list-unstyled ms-2 mt-2']),
-            ['class' => 'assignsubmission_vrtour-outline mb-2', 'open' => 'open',
-                'data-region' => 'assignsubmission_vrtour-outline']
-        );
+        $verdict = get_string($min > 0 ? 'verdictcounts' : 'verdictcountsnomin', 'assignsubmission_vrtour', (object)[
+            'photos' => $photocount,
+            'points' => $pointcount,
+            'min' => $min,
+        ]);
+        return $OUTPUT->render_from_template('assignsubmission_vrtour/outline', [
+            'ready' => $photocount > 0 && $pointcount >= $min,
+            'verdict' => $verdict,
+            'unreachable' => $unreachable ? get_string('verdictunreachable', 'assignsubmission_vrtour', $unreachable) : '',
+            'photos' => $photos,
+        ]);
     }
 
     /**
@@ -560,7 +610,7 @@ class assign_submission_vrtour extends assign_submission_plugin {
         );
         $PAGE->requires->js_call_amd('assignsubmission_vrtour/viewer', 'init', [['rootid' => $rootid, 'configid' => $configid]]);
 
-        $outline = $this->outline_html(tour_manager::scenes(tour_manager::get_row((int)$submission->id)));
+        $outline = $this->outline_html(tour_manager::scenes(tour_manager::get_row((int)$submission->id)), (int)$submission->id);
         return $outline . html_writer::div('', 'vrroom-root assignsubmission_vrtour-viewer', [
                 'id' => $rootid,
                 'data-region' => 'vrroom-root',
@@ -583,6 +633,9 @@ class assign_submission_vrtour extends assign_submission_plugin {
         if ($action === 'done') {
             $this->leave_editor();
         }
+        if ($action === 'practice') {
+            $this->start_with_practice_photo();
+        }
         if ($action === 'view') {
             return $this->view_viewer_page();
         }
@@ -590,7 +643,23 @@ class assign_submission_vrtour extends assign_submission_plugin {
     }
 
     /**
+     * Keep 5.3's sticky "Previous / Next" activity bar off the plugin's full-width pages, where it would
+     * cover the editor or the viewer. Moodle 5.2 has no such bar (and no such method).
+     */
+    private function hide_navigation_footer(): void {
+        global $PAGE;
+        if (method_exists($PAGE, 'set_show_navigation_footer')) {
+            $PAGE->set_show_navigation_footer(false);
+        }
+    }
+
+    /**
      * The tour editor page.
+     *
+     * While the tour has no photo, a start card covers the editor: one main action (which opens the
+     * editor's own "New photo room"), practice photos, and how to take a photo without a 360° camera.
+     * A small script removes the card once the editor lists a room, and brings it back if every room
+     * is deleted.
      *
      * @return string
      */
@@ -609,7 +678,21 @@ class assign_submission_vrtour extends assign_submission_plugin {
         $row = $submission ? tour_manager::get_row((int)$submission->id) : null;
         $hasphoto = $row && (int)$row->numphotos > 0;
         $rootid = 'vrroom-editor-' . $cmid;
+        $wrapid = 'assignsubmission_vrtour-editorwrap-' . $cmid;
         $PAGE->add_body_class('vrroom-editor-page');
+        if (!$hasphoto) {
+            $PAGE->add_body_class('assignsubmission-vrtour-empty');
+        }
+        $this->hide_navigation_footer();
+        [, $points] = tour_manager::counts(tour_manager::scenes($row));
+        $tips = [
+            'first' => get_string('tipfirstpoint', 'assignsubmission_vrtour'),
+            'one' => get_string('tipmorepoint', 'assignsubmission_vrtour'),
+            'more' => get_string('tipmorepoints', 'assignsubmission_vrtour', '__N__'),
+            'ready' => get_string('tipready', 'assignsubmission_vrtour'),
+            'min' => tour_manager::settings($this)['minpoints'],
+            'points' => $points,
+        ];
         $PAGE->requires->js_call_amd('mod_vrroom/editor_app', 'init', [[
             'cmid' => $cmid,
             'rootid' => $rootid,
@@ -622,6 +705,64 @@ class assign_submission_vrtour extends assign_submission_plugin {
                 'doneurl' => $doneurl->out(false),
             ],
         ]]);
+        // The start card's button opens the editor's own "New photo room"; the card goes once a room exists.
+        $PAGE->requires->js_amd_inline('
+            require([], function() {
+                var wrap = document.getElementById(' . json_encode($wrapid) . ');
+                if (!wrap) {
+                    return;
+                }
+                var tips = ' . json_encode($tips) . ';
+                var tiptext = document.querySelector(\'[data-region="assignsubmission_vrtour-tiptext"]\');
+                var showtip = function() {
+                    if (!tiptext) {
+                        return;
+                    }
+                    var missing = tips.min - tips.points;
+                    var html = tips.ready;
+                    if (tips.points < 1 && tips.min > 0) {
+                        html = tips.first;
+                    } else if (missing === 1) {
+                        html = tips.one;
+                    } else if (missing > 1) {
+                        html = tips.more.replace("__N__", String(missing));
+                    }
+                    if (tiptext.innerHTML !== html) {
+                        tiptext.innerHTML = html;
+                    }
+                };
+                var update = function() {
+                    var empty = !wrap.querySelector(\'[data-action="vrroom-editor-scene"]\');
+                    if (wrap.classList.contains("is-empty") !== empty) {
+                        wrap.classList.toggle("is-empty", empty);
+                        document.body.classList.toggle("assignsubmission-vrtour-empty", empty);
+                    }
+                };
+                // VR room\'s editor reports its live counts (from its 2026-11-26 prototype on).
+                wrap.addEventListener("vrroom-editor:requirements", function(e) {
+                    (e.detail && e.detail.items || []).forEach(function(item) {
+                        if (item.kind === "pointsofinterest") {
+                            tips.points = Number(item.count) || 0;
+                        }
+                    });
+                    showtip();
+                });
+                showtip();
+                new MutationObserver(function() {
+                    window.requestAnimationFrame(update);
+                }).observe(wrap.querySelector(\'[data-region="vrroom-editor-outline"]\') || wrap,
+                    {childList: true, subtree: true});
+                wrap.addEventListener("click", function(e) {
+                    if (!e.target.closest(\'[data-action="assignsubmission_vrtour-start"]\')) {
+                        return;
+                    }
+                    e.preventDefault();
+                    var add = wrap.querySelector(\'[data-action="vrroom-editor-addphotoscene"]\');
+                    if (add) {
+                        add.click();
+                    }
+                });
+            });');
 
         $renderer = $assign->get_renderer();
         $o = $renderer->render(new assign_header(
@@ -631,61 +772,120 @@ class assign_submission_vrtour extends assign_submission_plugin {
             $cmid,
             get_string('edittour', 'assignsubmission_vrtour')
         ));
-        $o .= $OUTPUT->notification($this->editor_intro_html(), \core\output\notification::NOTIFY_INFO);
-        $o .= $this->no_camera_html();
-        $o .= $renderer->render_from_template('mod_vrroom/editor_page', [
+        $o .= $this->editor_guide_html();
+        // The tip's text is a lang string with a little markup, chosen and kept current by the script above.
+        $o .= html_writer::div(
+            $OUTPUT->pix_icon('i/info', '') .
+            html_writer::span(get_string('tiplabel', 'assignsubmission_vrtour'), 'visually-hidden') .
+            html_writer::span('', '', ['data-region' => 'assignsubmission_vrtour-tiptext']),
+            'assignsubmission_vrtour-tip alert alert-light border py-2 mb-2',
+            ['data-region' => 'assignsubmission_vrtour-tip', 'aria-live' => 'polite']
+        );
+        $start = $OUTPUT->render_from_template('assignsubmission_vrtour/start_card', [
+            'requirements' => $this->requirements_text(),
+            'practice' => $this->practice_choices($cmid),
+            'nocamera' => ['open' => true],
+        ]);
+        $editor = $renderer->render_from_template('mod_vrroom/editor_page', [
             'rootid' => $rootid,
             'cmid' => $cmid,
             // No Preview link until the tour has a photo to show.
             'viewurl' => $hasphoto ? tour_manager::view_url($cmid, (int)$submission->id)->out(false) : null,
         ]);
-        $o .= html_writer::div(html_writer::link($doneurl, get_string('backtosubmission', 'assignsubmission_vrtour')), 'mt-3');
+        $o .= html_writer::div($start . $editor, 'assignsubmission_vrtour-editorwrap' . ($hasphoto ? '' : ' is-empty'), [
+            'id' => $wrapid,
+        ]);
+        // VR room's editor shows its own exit in the toolbar from the version that reads info.exit; this
+        // link is for older editors and is hidden by styles.css when the toolbar's exit is shown.
+        $o .= html_writer::div(
+            html_writer::link($doneurl, get_string('backtosubmission', 'assignsubmission_vrtour')),
+            'mt-3 assignsubmission_vrtour-back'
+        );
         $o .= $renderer->render_footer();
         return $o;
     }
 
     /**
-     * The editor's banner: what a tour is, three steps, and what this assignment asks for.
+     * The practice photos a student may start a tour with, while the tour has room for another photo.
+     *
+     * @param int $cmid Course module id.
+     * @return array[] {name, thumb, url}
+     */
+    private function practice_choices(int $cmid): array {
+        global $OUTPUT;
+        $choices = [];
+        foreach (tour_manager::PRACTICE_PHOTOS as $key) {
+            $choices[] = [
+                'name' => get_string('practice_' . $key, 'assignsubmission_vrtour'),
+                'thumb' => $OUTPUT->image_url('practice/' . $key, 'assignsubmission_vrtour')->out(false),
+                'url' => tour_manager::practice_url($cmid, $key)->out(false),
+            ];
+        }
+        return $choices;
+    }
+
+    /**
+     * The editor's guide, one line until opened: what a tour is, three steps, what this assignment asks
+     * for, and the "No 360° camera?" help. Hidden while the start card shows.
      *
      * The step strings hold a little markup (<strong>) and no user data.
      *
      * @return string HTML.
      */
-    private function editor_intro_html(): string {
+    private function editor_guide_html(): string {
+        global $OUTPUT;
+
         $steps = '';
         foreach (['editorstep1', 'editorstep2', 'editorstep3'] as $key) {
             $steps .= html_writer::tag('li', get_string($key, 'assignsubmission_vrtour'));
         }
-        return html_writer::tag('p', s(get_string('editorintro', 'assignsubmission_vrtour')), ['class' => 'mb-1']) .
+        $body = html_writer::tag('p', s(get_string('editorintro', 'assignsubmission_vrtour')), ['class' => 'mb-1']) .
             html_writer::tag('ol', $steps, ['class' => 'mb-1']) .
-            html_writer::tag('p', s($this->requirements_text()), ['class' => 'mb-0 fw-bold']);
+            html_writer::tag('p', s($this->requirements_text()), ['class' => 'mb-2 fw-bold']) .
+            $OUTPUT->render_from_template('assignsubmission_vrtour/nocamera', ['open' => false]);
+        return html_writer::tag(
+            'details',
+            html_writer::tag('summary', s(get_string('guidesummary', 'assignsubmission_vrtour')), ['class' => 'fw-bold']) .
+            html_writer::div($body, 'mt-2'),
+            [
+                'class' => 'assignsubmission_vrtour-guide alert alert-info py-2 mb-3',
+                'data-region' => 'assignsubmission_vrtour-guide',
+            ]
+        );
     }
 
     /**
-     * "No 360° camera?": how to make a tour photo with a phone, and what happens to an ordinary photo.
+     * Start (or extend) the tour with one of the bundled practice photos, then go back to the editor.
      *
-     * @return string HTML.
+     * @return void Redirects.
      */
-    private function no_camera_html(): string {
-        $body = '';
-        foreach (['nocameraphone', 'nocamerasphere', 'nocameraflat'] as $key) {
-            $body .= html_writer::tag('p', get_string($key, 'assignsubmission_vrtour'), ['class' => 'mb-1']);
+    private function start_with_practice_photo(): void {
+        $assign = $this->assignment;
+        $cm = $assign->get_course_module();
+        require_login($assign->get_course(), false, $cm);
+        require_sesskey();
+        tour_manager::get_plugin($assign);
+        $key = required_param('photo', PARAM_ALPHA);
+        if (!in_array($key, tour_manager::PRACTICE_PHOTOS, true)) {
+            throw new \moodle_exception('errorinvalid', 'assignsubmission_vrtour', '', 'practice photo');
         }
-        return html_writer::tag(
-            'details',
-            html_writer::tag('summary', s(get_string('nocamera', 'assignsubmission_vrtour')), ['class' => 'fw-bold']) .
-            html_writer::div($body, 'mt-2'),
-            ['class' => 'assignsubmission_vrtour-nocamera border rounded p-2 mb-3',
-                'data-region' => 'assignsubmission_vrtour-nocamera']
+        $submission = tour_manager::require_editable_submission($assign);
+        tour_manager::add_practice_room(
+            $assign,
+            $submission,
+            $key,
+            get_string('practiceroomname', 'assignsubmission_vrtour', get_string('practice_' . $key, 'assignsubmission_vrtour'))
         );
+        redirect(tour_manager::edit_url((int)$cm->id));
     }
 
     /**
      * Leave the tour editor: back to the assignment, saying what is left to do to hand the tour in.
      *
      * With drafts the editor's save has made the submission a draft, so the student goes to the
-     * assignment page, where core shows "Submit assignment". Without drafts nothing is handed in until
-     * the submission form is saved, so the student goes to that form.
+     * assignment page, where core shows "Submit assignment"; the note says what the tour still needs,
+     * with a button back into the editor. Without drafts nothing is handed in until the submission
+     * form is saved, so the student goes to that form.
      *
      * @return void Redirects.
      */
@@ -718,11 +918,26 @@ class assign_submission_vrtour extends assign_submission_plugin {
                 \core\output\notification::NOTIFY_INFO
             );
         }
+        // The message is HTML: lang strings, a count and our own URL only.
+        $needed = $this->still_needed(tour_manager::scenes($row));
+        if ($needed === null) {
+            redirect(
+                $viewurl,
+                get_string('tourdonedraftready', 'assignsubmission_vrtour'),
+                null,
+                \core\output\notification::NOTIFY_SUCCESS
+            );
+        }
+        $continue = html_writer::link(
+            tour_manager::edit_url((int)$cm->id),
+            get_string('edittourcontinue', 'assignsubmission_vrtour'),
+            ['class' => 'btn btn-primary btn-sm ms-2 text-white text-decoration-none']
+        );
         redirect(
             $viewurl,
-            get_string('tourdonedraft', 'assignsubmission_vrtour'),
+            get_string('tourdonedraftneeds', 'assignsubmission_vrtour', s($needed)) . ' ' . $continue,
             null,
-            \core\output\notification::NOTIFY_INFO
+            \core\output\notification::NOTIFY_WARNING
         );
     }
 
@@ -732,6 +947,7 @@ class assign_submission_vrtour extends assign_submission_plugin {
      * @return string
      */
     private function view_viewer_page(): string {
+        $this->hide_navigation_footer();
         $assign = $this->assignment;
         $cm = $assign->get_course_module();
         require_login($assign->get_course(), false, $cm);

@@ -47,9 +47,11 @@ Assignment settings (in the *Submission types* section, when Virtual tour is tic
 ## How it works
 
 - The student presses *Add submission* (or *Edit submission*) and then *Build your tour* (or
-  *Continue your tour*). The room editor opens with photo rooms only, under a short three-step guide
-  and a "No 360° camera?" note: the student uploads a 360° photo for each room, adds points of
-  interest and links between the photos, and presses *Save*. The tour is stored each time.
+  *Continue your tour*). A new tour opens on a start card: add a first 360° photo, or start with one
+  of three bundled practice photos (`practice/`, Poly Haven, CC0), with pictured "No 360° camera?"
+  steps. Then the room editor (photo rooms only) shows a one-line guide and a next-step tip: the
+  student adds points of interest and links between the photos, and presses *Save*. The tour is
+  stored each time.
 - In an assignment with drafts, the first save that holds a photo makes the submission a draft,
   as saving the submission form does, so it no longer shows as "No submission". *Done* (or *Back to
   my submission*) returns to the assignment page with a note on what is left: submit the draft, or,

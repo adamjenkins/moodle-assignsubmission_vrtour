@@ -146,4 +146,36 @@ final class tour_manager_test extends \advanced_testcase {
         $this->assertFalse($outline[2]['reachable']);
         $this->assertSame([], tour_manager::outline([]));
     }
+
+    /**
+     * A practice photo becomes a photo room of the tour, stored like an upload, and does not change the status.
+     */
+    public function test_add_practice_room(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $course = $this->getDataGenerator()->create_course();
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $assign = $this->create_tour_assign($course, ['assignsubmission_vrtour_maxphotos' => 2]);
+        $this->setUser($student);
+        $submission = tour_manager::require_editable_submission($assign);
+
+        tour_manager::add_practice_room($assign, $submission, 'museum', 'Practice: Museum hall');
+        $scenes = tour_manager::scenes(tour_manager::get_row((int)$submission->id));
+        $this->assertCount(1, $scenes);
+        $this->assertSame('Practice: Museum hall', $scenes[0]['name']);
+        $this->assertSame('panorama', $scenes[0]['environment']['type']);
+        $file = tour_manager::find_ref_file($assign->get_context(), (int)$submission->id, $scenes[0]['environment']['file']);
+        $this->assertNotNull($file);
+        $this->assertNotNull(tour_manager::thumb_url(
+            $assign->get_context(),
+            (int)$submission->id,
+            $scenes[0]['environment']['file']
+        ));
+        $this->assertSame(ASSIGN_SUBMISSION_STATUS_NEW, $DB->get_field('assign_submission', 'status', ['id' => $submission->id]));
+
+        tour_manager::add_practice_room($assign, $submission, 'ballroom', 'Practice: Old ballroom');
+        // The assignment allows two photos: a third is refused.
+        $this->expectException(\moodle_exception::class);
+        tour_manager::add_practice_room($assign, $submission, 'musichall', 'Practice: Music hall');
+    }
 }

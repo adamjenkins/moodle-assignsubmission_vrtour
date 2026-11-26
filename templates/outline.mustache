@@ -1,0 +1,58 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template assignsubmission_vrtour/outline
+
+    A readable outline of a tour for graders: a one-line verdict, then each photo with a thumbnail, its
+    points of interest with their text, its links, and whether a visitor can reach it.
+
+    Context variables required for this template:
+    * ready - whether the tour meets the assignment's minimum
+    * verdict - the counts line
+    * unreachable - the warning about photos no link reaches, or empty
+    * photos - list of {title, thumb, start, reachable, points: [{title, kind, text}], links: [{label}], nopoints}
+
+    Example context (json):
+    {"ready": true, "verdict": "Photos: 2 · Points of interest: 3 (3 needed)", "unreachable": "",
+     "photos": [{"title": "Photo 1: Hall", "thumb": "", "start": true, "reachable": true,
+                 "points": [{"title": "The whale", "kind": "Point of interest", "text": "Twenty metres long."}],
+                 "links": [{"label": "Link to Garden"}], "nopoints": false}]}
+}}
+<section class="assignsubmission_vrtour-outline mt-2 mb-3" data-region="assignsubmission_vrtour-outline">
+    <h4 class="h6 text-uppercase text-body-secondary mb-2">{{#str}}outlineheading, assignsubmission_vrtour{{/str}}</h4>
+    <div class="d-flex flex-wrap gap-3 align-items-center border rounded p-2 mb-2 bg-body" data-region="assignsubmission_vrtour-verdict" data-ready="{{#ready}}1{{/ready}}{{^ready}}0{{/ready}}">
+        <span>{{#ready}}{{#pix}}i/valid, core, {{#str}}checkdone, assignsubmission_vrtour{{/str}}{{/pix}}{{/ready}}{{^ready}}{{#pix}}i/warning, core, {{#str}}checktodo, assignsubmission_vrtour{{/str}}{{/pix}}{{/ready}} <strong>{{verdict}}</strong></span>
+        {{#unreachable}}<span class="text-warning-emphasis">{{#pix}}i/warning, core{{/pix}} {{unreachable}}</span>{{/unreachable}}
+    </div>
+    <ol class="list-unstyled mb-0">
+        {{#photos}}
+        <li class="d-flex gap-3 mb-3">
+            {{#thumb}}<img class="assignsubmission_vrtour-thumb rounded flex-shrink-0" src="{{thumb}}" alt="" width="128" height="64" loading="lazy">{{/thumb}}
+            <div>
+                <div class="fw-bold">{{title}}</div>
+                {{#start}}<div class="text-body-secondary small">{{#str}}outlinestart, assignsubmission_vrtour{{/str}}</div>{{/start}}
+                {{^reachable}}<div class="text-warning-emphasis small">{{#pix}}i/warning, core{{/pix}} {{#str}}outlineunreachable, assignsubmission_vrtour{{/str}}</div>{{/reachable}}
+                {{#nopoints}}<div class="text-body-secondary small">{{#str}}outlinenopoints, assignsubmission_vrtour{{/str}}</div>{{/nopoints}}
+                <ul class="mb-0 ps-3">
+                    {{#points}}<li><strong>{{title}}</strong> <span class="text-body-secondary small">({{kind}})</span>{{#text}}<div class="small">{{text}}</div>{{/text}}</li>{{/points}}
+                    {{#links}}<li class="text-body-secondary small">{{label}}</li>{{/links}}
+                </ul>
+            </div>
+        </li>
+        {{/photos}}
+    </ol>
+</section>

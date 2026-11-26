@@ -61,6 +61,9 @@ final class tour_manager {
     /** @var int Most uploads (folders) one submission may hold; unused ones are deleted on save. */
     public const MAX_UPLOADS = 200;
 
+    /** @var string[] The bundled practice photos (practice/<key>.jpg, thumbnails in pix/practice/). */
+    public const PRACTICE_PHOTOS = ['museum', 'musichall', 'ballroom'];
+
     /** @var string The editor document's template name. */
     public const TEMPLATE = 'vrtour';
 
@@ -911,6 +914,121 @@ final class tour_manager {
             $filename
         );
         return ($file && !$file->is_directory()) ? $file : null;
+    }
+
+    /**
+     * A small picture of a room's photo for lists: the phone-sized copy when there is one, else the photo.
+     *
+     * @param \context $context The assignment's context.
+     * @param int $submissionid The submission.
+     * @param array $ref The room's photo reference.
+     * @return string|null
+     */
+    public static function thumb_url(\context $context, int $submissionid, array $ref): ?string {
+        $file = self::find_ref_file($context, $submissionid, $ref);
+        if (!$file) {
+            return null;
+        }
+        $copies = get_file_storage()->get_directory_files(
+            $context->id,
+            self::COMPONENT,
+            self::FILEAREA,
+            $submissionid,
+            panorama::variants_path($file),
+            false,
+            false
+        );
+        foreach ($copies as $copy) {
+            if (str_starts_with($copy->get_filename(), 'mobile.')) {
+                return self::file_url($copy);
+            }
+        }
+        return self::file_url($file);
+    }
+
+    /**
+     * Where a practice photo link leads (it starts the tour with that photo).
+     *
+     * @param int $cmid Course module id.
+     * @param string $key One of PRACTICE_PHOTOS.
+     * @return \moodle_url
+     */
+    public static function practice_url(int $cmid, string $key): \moodle_url {
+        return new \moodle_url('/mod/assign/view.php', [
+            'id' => $cmid,
+            'action' => 'viewpluginpage',
+            'plugin' => 'vrtour',
+            'pluginsubtype' => 'assignsubmission',
+            'pluginaction' => 'practice',
+            'photo' => $key,
+            'sesskey' => sesskey(),
+        ]);
+    }
+
+    /**
+     * Add a photo room made from a bundled practice photo to the end of the tour.
+     *
+     * The photo is copied in as one of the submission's uploads, like a student's own, and the tour is
+     * checked as an editor save checks it. It does not change the submission's status: a practice
+     * photo alone is not work to hand in.
+     *
+     * @param \assign $assign The assignment.
+     * @param \stdClass $submission The current user's submission (the caller checked it may be edited).
+     * @param string $key One of PRACTICE_PHOTOS.
+     * @param string $name The room's name.
+     * @throws \moodle_exception errortoomanyphotos, errortoomanyuploads, errorinvalid
+     */
+    public static function add_practice_room(\assign $assign, \stdClass $submission, string $key, string $name): void {
+        global $CFG;
+        if (!in_array($key, self::PRACTICE_PHOTOS, true)) {
+            throw new \moodle_exception('errorinvalid', self::COMPONENT, '', 'practice photo');
+        }
+        $context = $assign->get_context();
+        $submissionid = (int)$submission->id;
+        $lock = self::lock($submissionid);
+        try {
+            $scenes = self::scenes(self::get_row($submissionid));
+            if (count($scenes) >= self::settings(self::get_plugin($assign))['maxphotos']) {
+                throw new \moodle_exception(
+                    'errortoomanyphotos',
+                    self::COMPONENT,
+                    '',
+                    self::settings(self::get_plugin($assign))['maxphotos']
+                );
+            }
+            if (count(self::upload_numbers($context, $submissionid)) >= self::MAX_UPLOADS) {
+                throw new \moodle_exception('errortoomanyuploads', self::COMPONENT);
+            }
+            $number = self::next_upload_number($context, $submissionid);
+            $file = get_file_storage()->create_file_from_pathname([
+                'contextid' => $context->id,
+                'component' => self::COMPONENT,
+                'filearea' => self::FILEAREA,
+                'itemid' => $submissionid,
+                'filepath' => "/{$number}/",
+                'filename' => $key . '.jpg',
+            ], $CFG->dirroot . '/mod/assign/submission/vrtour/practice/' . $key . '.jpg');
+            panorama::make_variants($file);
+            $scenes[] = [
+                'schema' => 'vrroom-scene/1',
+                'id' => \core\uuid::generate(),
+                'name' => $name,
+                'environment' => [
+                    'type' => 'panorama',
+                    'file' => ['area' => self::REF_AREA, 'itemid' => $number, 'filepath' => '/', 'filename' => $key . '.jpg'],
+                    'northoffset' => 0,
+                    'sky' => '#20242a',
+                ],
+                'spawn' => [['id' => 's-' . \core\uuid::generate(), 'name' => $name, 'position' => [0, 0, 0], 'yaw' => 0]],
+                'zones' => [],
+                'props' => [],
+                'interactables' => [],
+            ];
+            self::validate($assign, $submissionid, $scenes);
+            self::store($assign, $submission, $scenes);
+        } finally {
+            $lock->release();
+        }
     }
 
     /**

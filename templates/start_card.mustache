@@ -1,0 +1,59 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template assignsubmission_vrtour/start_card
+
+    The tour editor's first screen while the tour has no photo: one main action, practice photos, and how to
+    take a photo without a 360° camera. It covers the editor until the first photo is added.
+
+    Context variables required for this template:
+    * requirements - what the assignment asks for, one sentence
+    * practice - list of {name, thumb, url}
+    * nocamera - context for assignsubmission_vrtour/nocamera
+
+    Example context (json):
+    {"requirements": "This assignment asks for at least 3 points of interest, on up to 10 photos.",
+     "practice": [{"name": "Museum hall", "thumb": "#", "url": "#"}], "nocamera": {"open": true} }
+}}
+<div class="assignsubmission_vrtour-start" data-region="assignsubmission_vrtour-start">
+    <div class="card mx-auto my-3 assignsubmission_vrtour-startcard">
+        <div class="card-body">
+            <div class="d-flex gap-3 align-items-center mb-2">
+                {{> assignsubmission_vrtour/illustration }}
+                <h3 class="h4 mb-0">{{#str}}emptystatetitle, assignsubmission_vrtour{{/str}}</h3>
+            </div>
+            <p class="mb-1">{{#str}}emptystatetext, assignsubmission_vrtour{{/str}}</p>
+            <p class="text-body-secondary small mb-3">{{requirements}}</p>
+            <button type="button" class="btn btn-primary btn-lg" data-action="assignsubmission_vrtour-start">{{#str}}startbutton, assignsubmission_vrtour{{/str}}</button>
+            {{#practice.0}}
+            <hr>
+            <p class="fw-bold mb-2">{{#str}}practiceheading, assignsubmission_vrtour{{/str}}</p>
+            <div class="d-flex flex-wrap gap-2">
+                {{#practice}}
+                <a class="assignsubmission_vrtour-practice card text-decoration-none" href="{{url}}">
+                    <img src="{{thumb}}" alt="" width="160" height="107">
+                    <span class="px-2 py-1 small">{{name}}</span>
+                </a>
+                {{/practice}}
+            </div>
+            <p class="small text-body-secondary mt-1 mb-0">{{#str}}practicecredit, assignsubmission_vrtour{{/str}}</p>
+            {{/practice.0}}
+            <hr>
+            {{#nocamera}}{{> assignsubmission_vrtour/nocamera }}{{/nocamera}}
+        </div>
+    </div>
+</div>

@@ -31,11 +31,13 @@ Feature: Students make a virtual tour as an assignment submission
     When I am on the "Tour assignment" Activity page logged in as student1
     And I press "Add submission"
     Then I should see "No tour yet."
-    And I should see "This assignment asks for at least 2 points of interest, on up to 10 photos."
+    And I should see "To hand it in, your tour needs:"
+    And I should see "At least 2 points of interest"
     And I should see "Save what you have written in the other parts of this form before you open it."
     And I click on "Build your tour" "link"
     And "[data-region='vrroom-editor']" "css_element" should exist
     And I should see "Back to my submission"
+    And I should see "Add your first 360° photo"
     And I should see "No 360° camera?"
     And I log out
     And I am on the "Tour assignment" Activity page logged in as teacher1

@@ -1,0 +1,62 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template assignsubmission_vrtour/nocamera
+
+    "No 360° camera?": three pictured steps for taking a panorama with an ordinary phone, then two short notes.
+
+    Context variables required for this template:
+    * open - whether the box starts open
+
+    Example context (json):
+    {"open": true}
+}}
+<details class="assignsubmission_vrtour-nocamera border rounded p-2 bg-body" data-region="assignsubmission_vrtour-nocamera"{{#open}} open{{/open}}>
+    <summary class="fw-bold">{{#str}}nocamera, assignsubmission_vrtour{{/str}}</summary>
+    <ol class="list-unstyled d-flex flex-wrap gap-3 mt-2 mb-2">
+        <li class="assignsubmission_vrtour-step">
+            <svg viewBox="0 0 120 90" width="120" height="90" aria-hidden="true" focusable="false">
+                <rect x="38" y="4" width="44" height="82" rx="7" fill="#1d2125"/>
+                <rect x="42" y="12" width="36" height="52" fill="#9cc3a0"/>
+                <rect x="42" y="66" width="36" height="12" fill="#343a40"/>
+                <rect x="58" y="68" width="20" height="8" rx="2" fill="#f5a400"/>
+                <circle cx="60" cy="82" r="2" fill="#fff"/>
+            </svg>
+            <div class="small"><strong>1.</strong> {{#str}}nocamerastep1, assignsubmission_vrtour{{/str}}</div>
+        </li>
+        <li class="assignsubmission_vrtour-step">
+            <svg viewBox="0 0 120 90" width="120" height="90" aria-hidden="true" focusable="false">
+                <circle cx="60" cy="45" r="30" fill="none" stroke="#0f6cbf" stroke-width="3" stroke-dasharray="150 40"/>
+                <path d="M86 58 l8 -2 l-2 9 z" fill="#0f6cbf"/>
+                <circle cx="60" cy="45" r="9" fill="#1d2125"/>
+                <rect x="57" y="22" width="6" height="12" rx="1" fill="#1d2125"/>
+            </svg>
+            <div class="small"><strong>2.</strong> {{#str}}nocamerastep2, assignsubmission_vrtour{{/str}}</div>
+        </li>
+        <li class="assignsubmission_vrtour-step">
+            <svg viewBox="0 0 120 90" width="120" height="90" aria-hidden="true" focusable="false">
+                <rect x="4" y="10" width="112" height="70" rx="4" fill="#20242a"/>
+                <rect x="4" y="32" width="112" height="26" fill="#9cc3a0"/>
+                <rect x="4" y="32" width="112" height="8" fill="#7aa7d6"/>
+                <circle cx="60" cy="47" r="4" fill="#f5a400" stroke="#fff" stroke-width="1.5"/>
+            </svg>
+            <div class="small"><strong>3.</strong> {{#str}}nocamerastep3, assignsubmission_vrtour{{/str}}</div>
+        </li>
+    </ol>
+    <p class="small mb-1">{{#str}}nocamerasphere, assignsubmission_vrtour{{/str}}</p>
+    <p class="small mb-0">{{#str}}nocameraflat, assignsubmission_vrtour{{/str}}</p>
+</details>

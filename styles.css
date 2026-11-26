@@ -1,0 +1,90 @@
+/* The tour editor's first screen covers the editor until the tour has a photo. */
+.assignsubmission_vrtour-editorwrap {
+    position: relative;
+}
+
+.assignsubmission_vrtour-start {
+    display: none;
+}
+
+.assignsubmission_vrtour-editorwrap.is-empty {
+    min-height: 40rem;
+}
+
+.assignsubmission_vrtour-editorwrap.is-empty .assignsubmission_vrtour-start {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    overflow: auto;
+    background-color: var(--bs-body-bg);
+}
+
+.assignsubmission_vrtour-startcard {
+    max-width: 52rem;
+}
+
+body.assignsubmission-vrtour-empty .assignsubmission_vrtour-guide {
+    display: none;
+}
+
+.assignsubmission_vrtour-practice img {
+    display: block;
+    width: 9rem;
+    height: 6rem;
+    object-fit: cover;
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+}
+
+.assignsubmission_vrtour-practice:hover,
+.assignsubmission_vrtour-practice:focus {
+    outline: 2px solid var(--bs-primary);
+}
+
+.assignsubmission_vrtour-step {
+    width: 11rem;
+}
+
+.assignsubmission_vrtour-todo {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--bs-secondary-color);
+    border-radius: 50%;
+}
+
+.assignsubmission_vrtour-thumb {
+    object-fit: cover;
+}
+
+/* With drafts and no other submission type, the form's own Save has nothing to add to the tour. */
+#page-mod-assign-editsubmission form:has([data-region="assignsubmission_vrtour-card"][data-hidesave="1"]) #id_submitbutton {
+    display: none;
+}
+
+/* The editor's own exit (VR room's info.exit) makes the link under the editor redundant. */
+.assignsubmission_vrtour-editorwrap:has([data-region="vrroom-editor-exit"]:not(.d-none)) ~ .assignsubmission_vrtour-back {
+    display: none;
+}
+
+/* On the start card the picture is small, beside the heading, so the button stays on a phone's first screen. */
+.assignsubmission_vrtour-startcard .assignsubmission_vrtour-illustration {
+    width: 4rem;
+    height: 4rem;
+    flex-shrink: 0;
+}
+
+.assignsubmission_vrtour-tip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* The next-step tip has nothing to say while the start card shows. */
+body.assignsubmission-vrtour-empty .assignsubmission_vrtour-tip {
+    display: none;
+}

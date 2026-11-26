@@ -304,4 +304,31 @@ final class locallib_test extends \advanced_testcase {
         $withtext = $this->create_tour_assign($course, ['assignsubmission_onlinetext_enabled' => 1]);
         $this->assertStringContainsString(get_string('edittournote', 'assignsubmission_vrtour'), $render($withtext, null));
     }
+
+    /**
+     * Every template renders with its strings (no "[[" left).
+     */
+    public function test_templates_render(): void {
+        global $PAGE;
+        $this->resetAfterTest();
+        $PAGE->set_url('/');
+        $output = $PAGE->get_renderer('core');
+        $item = ['done' => false, 'label' => 'At least one 360° photo', 'count' => '0 so far'];
+        $contexts = [
+            'illustration' => [],
+            'checklist' => ['items' => [$item]],
+            'form_card' => ['started' => false, 'items' => [$item], 'editurl' => '#', 'editlabel' => 'Build your tour',
+                'note' => '', 'owneronly' => '', 'hidesave' => 1],
+            'nocamera' => ['open' => true],
+            'start_card' => ['requirements' => 'x', 'practice' => [['name' => 'Museum hall', 'thumb' => '#', 'url' => '#']],
+                'nocamera' => ['open' => true]],
+            'outline' => ['ready' => false, 'verdict' => 'x', 'unreachable' => 'y', 'photos' => [['title' => 't', 'thumb' => '#',
+                'start' => true, 'reachable' => false, 'nopoints' => true, 'points' => [], 'links' => []]]],
+        ];
+        foreach ($contexts as $name => $context) {
+            $html = $output->render_from_template('assignsubmission_vrtour/' . $name, $context);
+            $this->assertNotSame('', trim($html), $name);
+            $this->assertStringNotContainsString('[[', $html, $name);
+        }
+    }
 }
