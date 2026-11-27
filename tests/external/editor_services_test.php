@@ -424,6 +424,37 @@ final class editor_services_test extends \advanced_testcase {
     }
 
     /**
+     * A practice photo leaves a new submission new, but on a submitted tour (no drafts) it is recorded as an
+     * editor save is: the submission gets the change's time.
+     */
+    public function test_practice_photo_records_the_change(): void {
+        global $DB;
+
+        $this->setUser($this->student);
+        $submission = $this->assign->get_user_submission($this->student->id, true);
+        tour_manager::add_practice_room($this->assign, $submission, 'museum', 'Practice: museum');
+        $this->assertSame(ASSIGN_SUBMISSION_STATUS_NEW, $DB->get_field('assign_submission', 'status', ['id' => $submission->id]));
+        $this->assertSame(1, (int)tour_manager::get_row((int)$submission->id)->numphotos);
+
+        $assign = $this->create_tour_assign($this->course, ['submissiondrafts' => 0, 'assignsubmission_vrtour_minpoints' => 0]);
+        $submission = $assign->get_user_submission($this->student->id, true);
+        $DB->update_record('assign_submission', (object)[
+            'id' => $submission->id,
+            'status' => ASSIGN_SUBMISSION_STATUS_SUBMITTED,
+            'timemodified' => 1000,
+        ]);
+        $submission = $DB->get_record('assign_submission', ['id' => $submission->id], '*', MUST_EXIST);
+        tour_manager::add_practice_room($assign, $submission, 'ballroom', 'Practice: ballroom');
+        $record = $DB->get_record('assign_submission', ['id' => $submission->id], '*', MUST_EXIST);
+        $this->assertSame(ASSIGN_SUBMISSION_STATUS_SUBMITTED, $record->status);
+        $this->assertGreaterThan(1000, (int)$record->timemodified);
+
+        // An unknown photo is refused.
+        $this->expectException(\moodle_exception::class);
+        tour_manager::add_practice_room($assign, $submission, 'kitchen', 'x');
+    }
+
+    /**
      * Without drafts, an editor save never changes a new submission: only the submission form hands it in.
      */
     public function test_save_without_drafts_keeps_new(): void {

@@ -30,7 +30,8 @@ Feature: Students make a virtual tour as an assignment submission
     And I log out
     When I am on the "Tour assignment" Activity page logged in as student1
     And I press "Add submission"
-    Then I should see "No tour yet."
+    Then I should see "A virtual tour is a few 360° photos of a place"
+    And I should see "At least one 360° photo"
     And I should see "To hand it in, your tour needs:"
     And I should see "At least 2 points of interest"
     And I should see "Save what you have written in the other parts of this form before you open it."

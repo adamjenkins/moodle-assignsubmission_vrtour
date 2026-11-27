@@ -606,25 +606,9 @@ final class tour_manager {
             }
             self::validate($assign, (int)$submission->id, $scenes);
 
-            // 4. Without drafts a submitted tour stays submitted, so it must still be one that could be
-            // submitted (the check of the submission form's save).
-            $submitted = !$assign->get_instance()->submissiondrafts
-                && $submission->status === ASSIGN_SUBMISSION_STATUS_SUBMITTED;
-            if ($submitted) {
-                $problem = self::get_plugin($assign)->problem($scenes);
-                if ($problem !== null) {
-                    self::fail($problem);
-                }
-            }
-
-            // 5. Store, then delete the uploads no room uses.
-            $row = self::store($assign, $submission, $scenes);
+            // 4. Store, update the submission, then delete the uploads no room uses.
+            $row = self::store_change($assign, $submission, $scenes, $before === null);
             self::prune($assign->get_context(), (int)$submission->id, $scenes);
-            if ($submitted) {
-                self::record_submitted_change($assign, $submission, $row, $before === null);
-            } else if (self::starts_draft($assign, $submission, $row)) {
-                self::record_draft($assign, $submission, $row, $before === null);
-            }
         } finally {
             $lock->release();
         }
@@ -636,6 +620,46 @@ final class tour_manager {
             'graphupdated' => false,
             'customised' => (int)$row->timemodified,
         ];
+    }
+
+    /**
+     * Store a changed tour and record the change on the submission, for every way a tour changes (the
+     * editor's save, a practice photo).
+     *
+     * Without drafts a submitted tour stays submitted, so it must still be one that could be submitted (the
+     * check of the submission form's save), and the submission gets the change's time. With drafts the
+     * editor's first photo makes a new submission a draft; a practice photo does not, as the student has
+     * made nothing yet. Call it inside the tour's lock.
+     *
+     * @param \assign $assign The assignment.
+     * @param \stdClass $submission The assign_submission row.
+     * @param array $scenes The rooms, already validated.
+     * @param bool $isnew Whether the tour has no row yet.
+     * @param bool $startdraft Whether a new submission becomes a draft.
+     * @return \stdClass The row as stored.
+     */
+    private static function store_change(
+        \assign $assign,
+        \stdClass $submission,
+        array $scenes,
+        bool $isnew,
+        bool $startdraft = true
+    ): \stdClass {
+        $submitted = !$assign->get_instance()->submissiondrafts
+            && $submission->status === ASSIGN_SUBMISSION_STATUS_SUBMITTED;
+        if ($submitted) {
+            $problem = self::get_plugin($assign)->problem($scenes);
+            if ($problem !== null) {
+                self::fail($problem);
+            }
+        }
+        $row = self::store($assign, $submission, $scenes);
+        if ($submitted) {
+            self::record_submitted_change($assign, $submission, $row, $isnew);
+        } else if ($startdraft && self::starts_draft($assign, $submission, $row)) {
+            self::record_draft($assign, $submission, $row, $isnew);
+        }
+        return $row;
     }
 
     /**
@@ -1028,7 +1052,8 @@ final class tour_manager {
         $submissionid = (int)$submission->id;
         $lock = self::lock($submissionid);
         try {
-            $scenes = self::scenes(self::get_row($submissionid));
+            $before = self::get_row($submissionid);
+            $scenes = self::scenes($before);
             if (count($scenes) >= self::settings(self::get_plugin($assign))['maxphotos']) {
                 throw new \moodle_exception(
                     'errortoomanyphotos',
@@ -1066,7 +1091,7 @@ final class tour_manager {
                 'interactables' => [],
             ];
             self::validate($assign, $submissionid, $scenes);
-            self::store($assign, $submission, $scenes);
+            self::store_change($assign, $submission, $scenes, $before === null, false);
         } finally {
             $lock->release();
         }
@@ -1348,7 +1373,10 @@ final class tour_manager {
                 $content = is_array($item['content'] ?? null) ? $item['content'] : [];
                 $title = trim((string)($content['title'] ?? '')) ?: trim((string)($item['name'] ?? ''));
                 $text = (string)($content['text'] ?? ($item['text'] ?? ''));
-                $text = trim(preg_replace('/\s+/u', ' ', html_to_text($text, 0, false)));
+                // Not html_to_text(): it writes <strong> and <b> in capitals ("Twenty METRES long").
+                $text = preg_replace('~<(br|/?(p|div|li|ul|ol|h[1-6]|tr|td|th|blockquote))\b[^>]*>~i', ' ', $text);
+                $text = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $text = trim(preg_replace('/\s+/u', ' ', $text));
                 $points[] = [
                     'title' => $title,
                     'kind' => in_array($kind, ['hotspot', 'image', 'text', 'media'], true) ? $kind : 'hotspot',
