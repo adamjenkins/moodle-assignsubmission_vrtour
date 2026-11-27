@@ -3,6 +3,42 @@
 All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0] - 2026-11-27
+
+### Added
+
+- Start card for an empty tour (`templates/start_card.mustache`, `templates/nocamera.mustache`,
+  `templates/illustration.mustache`) with three bundled CC0 practice photos (`practice/`, thumbnails in
+  `pix/practice/`, credits in `practice/README.md`); the `practice` page action
+  (`tour_manager::add_practice_room()`, sesskey, `require_editable_submission()`).
+- Submission form card with a checklist (`templates/form_card.mustache`, `templates/checklist.mustache`).
+- Grader outline with a verdict, thumbnails and unreachable photos (`tour_manager::outline()`,
+  `templates/outline.mustache`), folded for the student.
+- Viewer stage with a photo caption and a loading panel (`templates/stage.mustache`, `amd/src/viewer.js`);
+  the caption follows VR room's `vrroom:scenechange` event and polls only on a VR room without it.
+- The editor's next-step tip, its cue ring on the named button, the editor's photo-only mode, empty state,
+  requirements, exit and tour labels (`tour_manager::EDITOR_LABELS`, `label_*` strings).
+- `variants.mobile` for each photo in the editor's asset list (the photo itself when it is no wider than
+  `panorama::mobile_width()`), so VR room's photo panel shows a picture.
+- New strings (141 in `lang/en`) and tests: `locallib_test` (captions, outline, templates),
+  `tour_manager_test`, `editor_services_test` (drafts, practice photos, small copies).
+
+### Changed
+
+- Requires `mod_vrroom` 2026112700 (0.2.0); `composer.json` requires `adamjenkins/moodle-mod_vrroom` `^0.2`.
+- An editor save with a photo makes a new or reopened submission a draft (assignments with drafts),
+  as the submission form's save does (`tour_manager::starts_draft()`, `record_draft()`).
+- The editor's Done and "Back to my submission" lead to the assignment page with a note (`done` action).
+- The full-page viewer puts the tour first, with a back button; the outline follows it.
+- Setting labels and help reworded; styles use the MAVR shared chrome values.
+
+### Fixed
+
+- Adding a practice photo to a submitted tour (no drafts) now records the change on the submission
+  (time, event) as an editor save does (`tour_manager::store_change()`).
+- The outline's point text no longer turns bold words into capitals (it used `html_to_text()`).
+- Preview is offered only once the tour has a photo.
+
 ## [0.1.3] - 2026-11-15
 
 ### Added

@@ -1,28 +1,28 @@
 # Changes
 
-## Unreleased (prototype 2026-11-26)
+## 0.2.0 (2026-11-27) — ALPHA
 
-- Saving a tour that has a photo now makes the submission a draft (in assignments with drafts), as saving the submission form does. Students and the grading table no longer see "No submission" for a saved tour.
-- The editor's Done and "Back to my submission" return to the assignment page, with a note on what is left to do.
-- The submission form's main button is now "Build your tour" or "Continue your tour". It says what the assignment asks for, and warns about unsaved fields only when the form has other parts.
-- The editor page has a three-step guide and a "No 360° camera?" note. The photo upload dialog mentions phone panoramas.
-- The submission summary says whether the tour has enough points of interest to be handed in.
-- Graders see a readable tour outline above the 3D tour: each photo, its points of interest with their text, its links, and any photo no link reaches. The full-page viewer leads graders back to grading.
-- Preview appears only once the tour has a photo.
-- Clearer setting names: "Most photos in a tour", "Points of interest needed", "Largest image, audio or video file".
-- A new tour opens on a start card instead of an empty editor: one "Add your first 360° photo" button, three practice photos (Poly Haven, CC0) that start the tour in one click, and "No 360° camera?" steps with pictures. After the first photo, a tip above the editor says what to do next, and the guide shrinks to one line.
-- The submission form shows the tour as a card with a checklist ("At least 3 points of interest — 2 so far"). When the tour is the only thing to hand in and drafts are on, the form's own "Save changes" is hidden: the editor's save already makes the draft.
-- Back from the editor, the note says what the tour still needs, with a "Continue your tour" button.
-- The grader's outline starts with a one-line verdict and shows a small picture of each photo.
-- The editor and the full-page viewer no longer carry Moodle 5.3's sticky "Previous / Next" bar.
-- The editor gets photo-only mode, an empty-state panel, a live requirements strip and an always-visible exit from VR room's editor, when the installed VR room supports them.
-- The full-page viewer shows the tour first, under a "Back to the assignment" (or "Back to grading") button. A caption in the 3D view says which photo is showing ("Photo 2 of 4: The music hall") and what there is to find in it; it stays in fullscreen. The outline comes after the tour: open for graders, folded to its one-line verdict for the student.
-- An "Opening the tour…" panel shows until the tour is ready.
-- The editor's next-step tip has an amber edge (green once the tour is ready), and the button it names gets an amber ring. The tip and the caption fade in when they change; the start card fades out when the first photo arrives. No motion for people who ask their device for less.
-- Floating panels use the MAVR shared "glass" look and line icons; amber focus rings on the outline and the practice photos.
-- On phones the tour's pages have a smaller heading, so the tour starts higher on the first screen.
-- The editor's photo panel shows a small picture of the chosen photo instead of a grey "360° photo" box: the tour now lists each photo's phone-sized copy where VR room's editor looks for it.
+Building and grading a tour is now clear without a manual. Needs VR room 0.2.0.
 
-## 0.1.3 (2026-11-15) — ALPHA
+For students:
 
-- The plugin can now be installed with Composer from Packagist: `composer require adamjenkins/moodle-assignsubmission_vrtour`, which also brings in VR room. No change to the plugin itself.
+- A new tour opens on a start card: one "Add your first 360° photo" button, three practice photos (free Poly Haven photos, CC0) that start the tour in one click, and "No 360° camera?" steps with pictures.
+- The submission form shows the tour as a card with a checklist ("At least 3 points of interest (2 so far)") and one main button, "Build your tour" or "Continue your tour".
+- In the editor, a tip says what to do next, and the button it names gets an amber ring. The tip turns green when the tour has everything it needs. The editor's photo panel shows a small picture of the photo.
+- Saving a tour that has a photo makes the submission a draft (in assignments with drafts), so it no longer shows "No submission". "Back to my submission" returns to the assignment page with a note on what is left to do.
+- A change to a tour that is already handed in (assignments without drafts) is recorded on the submission, so it shows as modified and late work is flagged. This now also applies to adding a practice photo.
+
+For teachers:
+
+- The full-page viewer shows the tour first, under a "Back to grading" button. A caption in the 3D view says which photo is showing ("Photo 2 of 4: The music hall") and what there is to find in it, also in fullscreen.
+- Under the tour, an outline lists each photo, its points of interest with their text, its links, and any photo no link reaches. It starts with a one-line verdict: whether the tour has what the assignment asks for.
+- Clearer settings: "Most photos in a tour", "Points of interest needed", "Largest image, audio or video file".
+
+Look and feel:
+
+- The tour pages use the MAVR look: dark see-through panels, line icons, amber focus rings, short fades (none for people who ask their device for less motion). On phones the heading is smaller, so the tour starts on the first screen.
+- Moodle 5.3's "Previous / Next" bar no longer covers the editor or the viewer.
+
+For administrators:
+
+- Requires VR room (`mod_vrroom`) 0.2.0 (2026112700) or later. The tour editor uses that version's photo-only mode, empty state, requirements strip and exit button.

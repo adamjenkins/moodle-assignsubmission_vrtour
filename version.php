@@ -25,15 +25,16 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'assignsubmission_vrtour';
-$plugin->version = 2026111500;
-$plugin->release = '0.1.3';
+$plugin->version = 2026112700;
+$plugin->release = '0.2.0';
 $plugin->maturity = MATURITY_ALPHA;
 // Moodle 5.2.0 (the v5.2.0 tag's public/version.php: 2026042000.00).
 $plugin->requires = 2026042000;
 $plugin->supported = [502, 503];
 $plugin->dependencies = [
-    // The 360° photo rooms, the room editor and the scene validator.
-    'mod_vrroom' => 2026101100,
+    // The 360° photo rooms, the room editor and the scene validator. 0.2.0 (2026112700): the editor's
+    // photo-only mode, empty state, requirements strip, exit and labels that the tour editor uses.
+    'mod_vrroom' => 2026112700,
     // The viewer that shows the tour.
     'vrroomruntime_builtin' => 2026101100,
 ];

@@ -13,7 +13,7 @@ show 3D).
 ## Requirements
 
 - Moodle 5.2 or 5.3 (`$plugin->supported = [502, 503]`).
-- [VR room](https://github.com/adamjenkins/moodle-mod_vrroom) (`mod_vrroom`) 2026101100 or later,
+- [VR room](https://github.com/adamjenkins/moodle-mod_vrroom) (`mod_vrroom`) 0.2.0 (2026112700) or later,
   with its bundled built-in viewer (`vrroomruntime_builtin`) 2026101100 or later. VR room provides
   the 360° photo rooms, the room editor and the viewer; a VR room activity is not needed in the course.
 - The PHP GD extension (Moodle requires it) to make the smaller copies of each photo.
